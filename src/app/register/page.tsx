@@ -1,150 +1,145 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { signUp } from "@/lib/auth-client";
+import { useLang } from "@/lib/i18n/context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import Link from "next/link";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Loader2 } from "lucide-react";
 
-export default function RegisterPage() {
-  const router = useRouter();
-  const [formData, setFormData] = useState({
-    email: "",
-    name: "",
-    password: "",
-    confirmPassword: "",
-  });
+function RegisterForm() {
+  const { t } = useLang();
+  const searchParams = useSearchParams();
+  const redirect = searchParams.get("redirect") || "/";
+
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError("");
+
+    if (password.length < 6) {
+      setError(t.auth.minPassword);
+      return;
+    }
     setLoading(true);
 
-    if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match");
-      setLoading(false);
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError("Password must be at least 6 characters long");
-      setLoading(false);
-      return;
-    }
-
     try {
-      const result = await signUp.email({
-        email: formData.email,
-        password: formData.password,
-        name: formData.name,
-      });
-
+      const result = await signUp.email({ email, password, name });
       if (result.error) {
-        console.error(result.error);
-        setError(result.error.message || "Error registering. The email might already be in use.");
+        console.error("[register] sign up failed:", result.error);
+        setError(result.error.message || t.common.error);
         setLoading(false);
         return;
       }
-
-      // Use window.location for a full page reload to ensure session cookie is picked up
-      window.location.href = "/";
+      setTimeout(() => {
+        window.location.href = redirect;
+      }, 400);
     } catch (err: any) {
-      console.error("Registration error:", err);
-      setError(err.message || "Error registering. The email might already be in use.");
+      console.error("[register] error:", err);
+      setError(err?.message || t.common.error);
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-background to-muted/20">
-      <Card className="w-full max-w-md shadow-xl border-2">
-        <CardHeader className="space-y-2 text-center pb-6">
-          <CardTitle className="text-3xl font-bold tracking-tight">Create Account</CardTitle>
-          <CardDescription className="text-base">
-            Enter your information to get started
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleRegister}>
-          <CardContent className="space-y-5">
-            {error && (
-              <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-semibold">Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-                className="h-11 transition-all focus:ring-2"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="name" className="text-sm font-semibold">Full Name</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Your name"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-                className="h-11 transition-all focus:ring-2"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-semibold">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="At least 6 characters"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
-                minLength={6}
-                className="h-11 transition-all focus:ring-2"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-sm font-semibold">Confirm Password</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                placeholder="Re-enter your password"
-                value={formData.confirmPassword}
-                onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                required
-                minLength={6}
-                className="h-11 transition-all focus:ring-2"
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4 pt-4">
-            <Button
-              type="submit"
-              className="w-full h-11 text-base font-semibold transition-all hover:scale-[1.02]"
-              disabled={loading}
-            >
-              {loading ? "Creating account..." : "Sign Up"}
-            </Button>
-            <div className="text-sm text-center text-muted-foreground">
-              Already have an account?{" "}
-              <Link href="/login" className="font-semibold text-primary hover:underline transition-colors">
-                Sign in here
-              </Link>
-            </div>
-          </CardFooter>
+    <div className="mx-auto flex min-h-[calc(100vh-200px)] max-w-md items-center px-4 py-10">
+      <div className="glass-strong animate-fade-up w-full rounded-3xl p-6 sm:p-8">
+        <div className="mb-6 text-center">
+          <Link href="/" className="font-display text-2xl font-extrabold tracking-tight text-white">
+            AI<span className="neon-text">VEXA</span>
+          </Link>
+          <h1 className="font-display mt-4 text-xl font-bold text-white">{t.auth.registerTitle}</h1>
+          <p className="mt-1.5 text-sm text-foreground/55">{t.auth.registerSub}</p>
+        </div>
+
+        {error && (
+          <div className="mb-4 flex items-start gap-2 rounded-xl bg-rose-500/12 px-4 py-3 text-sm text-rose-300">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name" className="text-foreground/70">
+              {t.auth.name}
+            </Label>
+            <Input
+              id="name"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              required
+              autoComplete="name"
+              className="h-12 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-foreground/30"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-foreground/70">
+              {t.auth.email}
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              autoComplete="email"
+              placeholder="you@example.com"
+              className="h-12 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-foreground/30"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-foreground/70">
+              {t.auth.password}
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              minLength={6}
+              autoComplete="new-password"
+              placeholder="••••••••"
+              className="h-12 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-foreground/30"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            disabled={loading}
+            className="glow-primary h-12 w-full rounded-xl bg-gradient-to-r from-[#4c6fff] to-[#a855f7] text-base font-bold text-white"
+          >
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading ? t.auth.loading : t.auth.signUp}
+          </Button>
         </form>
-      </Card>
+
+        <p className="mt-6 text-center text-sm text-foreground/50">
+          {t.auth.hasAccount}{" "}
+          <Link href="/login" className="font-semibold text-white hover:underline">
+            {t.auth.signIn}
+          </Link>
+        </p>
+      </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={<div className="py-24 text-center text-sm text-foreground/40">…</div>}>
+      <RegisterForm />
+    </Suspense>
   );
 }

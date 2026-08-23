@@ -1,17 +1,17 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { signIn } from "@/lib/auth-client";
+import { useLang } from "@/lib/i18n/context";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import Link from "next/link";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 function LoginForm() {
-  const router = useRouter();
+  const { t } = useLang();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect") || "/";
 
@@ -20,110 +20,105 @@ function LoginForm() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      const result = await signIn.email({
-        email,
-        password,
-      });
-
-      // Check if login was successful
+      const result = await signIn.email({ email, password });
       if (result.error) {
-        setError(result.error.message || "Error signing in. Please check your credentials.");
+        console.error("[login] sign in failed:", result.error);
+        setError(result.error.message || t.common.error);
         setLoading(false);
         return;
       }
-
-      // If we get here, login was successful
-      // Wait a bit for cookie to be set, then do a full page reload
+      // Full reload so server components pick up the fresh session cookie.
       setTimeout(() => {
         window.location.href = redirect;
-      }, 500);
+      }, 400);
     } catch (err: any) {
-      console.error("Login error:", err);
-      setError(err.message || "Error signing in. Please check your credentials.");
+      console.error("[login] error:", err);
+      setError(err?.message || t.common.error);
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-background to-muted/20">
-      <Card className="w-full max-w-md shadow-xl border-2">
-        <CardHeader className="space-y-2 text-center pb-6">
-          <CardTitle className="text-3xl font-bold tracking-tight">Welcome Back</CardTitle>
-          <CardDescription className="text-base">
-            Enter your email and password to access your account
-          </CardDescription>
-        </CardHeader>
-        <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-5">
-            {error && (
-              <Alert variant="destructive" className="animate-in fade-in slide-in-from-top-2">
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="email" className="text-sm font-semibold">Email Address</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="h-11 transition-all focus:ring-2"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-sm font-semibold">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                className="h-11 transition-all focus:ring-2"
-              />
-            </div>
-          </CardContent>
-          <CardFooter className="flex flex-col space-y-4 pt-4">
-            <Button
-              type="submit"
-              className="w-full h-11 text-base font-semibold transition-all hover:scale-[1.02]"
-              disabled={loading}
-            >
-              {loading ? "Signing in..." : "Sign In"}
-            </Button>
-            <div className="text-sm text-center text-muted-foreground">
-              Don&apos;t have an account?{" "}
-              <Link href="/register" className="font-semibold text-primary hover:underline transition-colors">
-                Sign up here
-              </Link>
-            </div>
-          </CardFooter>
+    <div className="mx-auto flex min-h-[calc(100vh-200px)] max-w-md items-center px-4 py-10">
+      <div className="glass-strong animate-fade-up w-full rounded-3xl p-6 sm:p-8">
+        <div className="mb-6 text-center">
+          <Link href="/" className="font-display text-2xl font-extrabold tracking-tight text-white">
+            AI<span className="neon-text">VEXA</span>
+          </Link>
+          <h1 className="font-display mt-4 text-xl font-bold text-white">{t.auth.loginTitle}</h1>
+          <p className="mt-1.5 text-sm text-foreground/55">{t.auth.loginSub}</p>
+        </div>
+
+        {error && (
+          <div className="mb-4 flex items-start gap-2 rounded-xl bg-rose-500/12 px-4 py-3 text-sm text-rose-300">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-foreground/70">
+              {t.auth.email}
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              required
+              autoComplete="email"
+              placeholder="you@example.com"
+              className="h-12 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-foreground/30"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-foreground/70">
+              {t.auth.password}
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              required
+              autoComplete="current-password"
+              placeholder="••••••••"
+              className="h-12 rounded-xl border-white/10 bg-white/5 text-white placeholder:text-foreground/30"
+            />
+          </div>
+
+          <Button
+            type="submit"
+            disabled={loading}
+            className="glow-primary h-12 w-full rounded-xl bg-gradient-to-r from-[#4c6fff] to-[#a855f7] text-base font-bold text-white"
+          >
+            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {loading ? t.auth.loading : t.auth.signIn}
+          </Button>
         </form>
-      </Card>
+
+        <p className="mt-6 text-center text-sm text-foreground/50">
+          {t.auth.noAccount}{" "}
+          <Link href="/register" className="font-semibold text-white hover:underline">
+            {t.auth.signUp}
+          </Link>
+        </p>
+      </div>
     </div>
   );
 }
 
 export default function LoginPage() {
   return (
-    <Suspense fallback={
-      <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-background to-muted/20">
-        <Card className="w-full max-w-md shadow-xl border-2">
-          <CardHeader className="space-y-2 text-center pb-6">
-            <CardTitle className="text-3xl font-bold tracking-tight">Welcome Back</CardTitle>
-            <CardDescription className="text-base">Loading...</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    }>
+    <Suspense fallback={<div className="py-24 text-center text-sm text-foreground/40">…</div>}>
       <LoginForm />
     </Suspense>
   );

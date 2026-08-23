@@ -124,3 +124,214 @@
 button {
   cursor: pointer;
 }
+/* ============================================================
+   AIVEXA — Premium AI / Cyber SaaS theme
+   Dark by default, neon blue → violet → cyan, glass surfaces.
+   ============================================================ */
+
+:root,
+.dark {
+  --radius: 0.9rem;
+
+  --background: oklch(0.145 0.028 274);
+  --foreground: oklch(0.97 0.008 265);
+
+  --card: oklch(0.203 0.031 273);
+  --card-foreground: oklch(0.97 0.008 265);
+  --popover: oklch(0.19 0.03 273);
+  --popover-foreground: oklch(0.97 0.008 265);
+
+  --primary: oklch(0.66 0.212 268);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.27 0.04 274);
+  --secondary-foreground: oklch(0.95 0.01 265);
+
+  --muted: oklch(0.25 0.033 274);
+  --muted-foreground: oklch(0.72 0.026 268);
+
+  --accent: oklch(0.3 0.07 285);
+  --accent-foreground: oklch(0.97 0.008 265);
+
+  --destructive: oklch(0.63 0.22 25);
+  --border: oklch(0.99 0 0 / 12%);
+  --input: oklch(0.99 0 0 / 14%);
+  --ring: oklch(0.7 0.19 274);
+
+  --chart-1: oklch(0.66 0.212 268);
+  --chart-2: oklch(0.72 0.16 200);
+  --chart-3: oklch(0.68 0.2 305);
+  --chart-4: oklch(0.78 0.14 175);
+  --chart-5: oklch(0.72 0.17 340);
+
+  --sidebar: oklch(0.175 0.03 274);
+  --sidebar-foreground: oklch(0.97 0.008 265);
+  --sidebar-primary: oklch(0.66 0.212 268);
+  --sidebar-primary-foreground: oklch(0.99 0 0);
+  --sidebar-accent: oklch(0.26 0.04 274);
+  --sidebar-accent-foreground: oklch(0.97 0.008 265);
+  --sidebar-border: oklch(0.99 0 0 / 10%);
+  --sidebar-ring: oklch(0.7 0.19 274);
+
+  /* Brand tokens */
+  --neon-blue: #4c6fff;
+  --neon-violet: #a855f7;
+  --neon-cyan: #22d3ee;
+  --surface-glass: rgba(255, 255, 255, 0.045);
+  --surface-glass-strong: rgba(255, 255, 255, 0.07);
+}
+
+@theme inline {
+  --font-display: var(--font-unbounded);
+  --font-sans: var(--font-manrope);
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-manrope), "Segoe UI", sans-serif;
+  background-color: #0b0b16;
+  /* Ambient neon mesh — creates depth without any image asset */
+  background-image:
+    radial-gradient(60rem 40rem at 12% -8%, rgba(76, 111, 255, 0.28), transparent 60%),
+    radial-gradient(48rem 34rem at 92% 4%, rgba(168, 85, 247, 0.24), transparent 62%),
+    radial-gradient(52rem 40rem at 50% 108%, rgba(34, 211, 238, 0.16), transparent 62%);
+  background-attachment: fixed;
+  overflow-x: hidden;
+}
+
+/* Never allow a horizontal scrollbar on small screens */
+html,
+body {
+  max-width: 100%;
+}
+
+.font-display {
+  font-family: var(--font-unbounded), var(--font-manrope), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* ---------- Surfaces ---------- */
+.glass {
+  background: var(--surface-glass);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.glass-strong {
+  background: var(--surface-glass-strong);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.glass-hover {
+  transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
+}
+
+.glass-hover:hover {
+  transform: translateY(-3px);
+  border-color: rgba(124, 145, 255, 0.45);
+  background: var(--surface-glass-strong);
+  box-shadow: 0 18px 44px -22px rgba(76, 111, 255, 0.75);
+}
+
+/* ---------- Accents ---------- */
+.neon-text {
+  background: linear-gradient(100deg, #7f9dff 0%, #c084fc 45%, #22d3ee 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.neon-border {
+  position: relative;
+}
+
+.neon-border::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(120deg, rgba(76, 111, 255, 0.9), rgba(168, 85, 247, 0.75), rgba(34, 211, 238, 0.9));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.glow-primary {
+  box-shadow: 0 0 0 1px rgba(124, 145, 255, 0.25), 0 22px 48px -24px rgba(76, 111, 255, 0.9);
+}
+
+.grid-overlay {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.045) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(70% 60% at 50% 0%, #000 20%, transparent 100%);
+}
+
+/* ---------- Motion ---------- */
+@keyframes aivexa-fade-up {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes aivexa-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes aivexa-pulse-glow {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 0.85; }
+}
+
+.animate-fade-up {
+  animation: aivexa-fade-up 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-float {
+  animation: aivexa-float 7s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: aivexa-pulse-glow 4.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-fade-up,
+  .animate-float,
+  .animate-pulse-glow {
+    animation: none;
+  }
+}
+
+/* ---------- Utilities ---------- */
+.no-scrollbar::-webkit-scrollbar { display: none; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+.line-clamp-2 { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+::selection {
+  background: rgba(124, 145, 255, 0.35);
+  color: #fff;
+}
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: rgba(255, 255, 255, 0.03); }
+::-webkit-scrollbar-thumb { background: rgba(124, 145, 255, 0.35); border-radius: 999px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(124, 145, 255, 0.55); }
+
+/* Bottom navigation safe area on mobile */
+.pb-safe { padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 4.75rem); }
+
+@media (min-width: 768px) {
+  .pb-safe { padding-bottom: 0; }
+}

@@ -247,10 +247,35 @@ export const auth = betterAuth({
   // ============================================================================
   user: {
     additionalFields: {
-      // Add your custom user fields here (see examples above)
+      // AIVEXA: role drives admin panel access (authoritative check is done in src/lib/admin-auth.ts)
+      role: {
+        type: "string",
+        required: false,
+        defaultValue: "user",
+        input: false,
+      },
+      language: {
+        type: "string",
+        required: false,
+        defaultValue: "ru",
+        input: false,
+      },
     },
   },
 });
+
+/** User shape including the AIVEXA custom fields. */
+export interface ExtendedUser {
+  id: string;
+  email: string;
+  name: string;
+  image?: string | null;
+  emailVerified: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  role?: string;
+  language?: string;
+}
 
 // Base types from Better Auth
 export type Session = typeof auth.$Infer.Session;

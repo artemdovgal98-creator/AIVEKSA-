@@ -32,6 +32,19 @@ const publicRoutes = [
   "/privacy-policy",
   "/terms-of-service",
 
+  // AIVEXA public pages — the whole catalog must be reachable (and indexable)
+  // without an account.
+  "/catalog",
+  "/ai",
+  "/category",
+  "/match",
+  "/tools",
+  "/guide",
+  "/favorites",
+  "/go",
+  "/sitemap.xml",
+  "/robots.txt",
+
   //stripe routes here
   "/stripe/demo",
   "/stripe/success",
