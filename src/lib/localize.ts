@@ -51,10 +51,22 @@ export function expandedCategory(service: ServiceRecord): CategoryRecord | null 
   return null;
 }
 
-/** The URL the "Try it" button ultimately opens. */
+/**
+ * The URL the "Try it" button ultimately opens.
+ *
+ * Rule: if an affiliate link exists (and was not explicitly disabled by the
+ * admin) it wins, otherwise the official URL is used. An empty affiliate link
+ * never blocks a service from being published.
+ */
 export function resolveTargetUrl(service: ServiceRecord): string {
-  if (service.is_affiliate === "yes" && service.affiliate_url) return service.affiliate_url;
+  const affiliate = (service.affiliate_url || "").trim();
+  if (affiliate && service.is_affiliate !== "no") return affiliate;
   return service.official_url || "";
+}
+
+/** True when the visitor-facing "Affiliate Partner" mark should be shown. */
+export function isAffiliatePartner(service: ServiceRecord): boolean {
+  return service.affiliate_status === "connected" && Boolean((service.affiliate_url || "").trim());
 }
 
 export function slugify(input: string): string {

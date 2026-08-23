@@ -1,4 +1,5 @@
 import { slugify } from "@/lib/localize";
+import { AFFILIATE_STATUSES } from "@/lib/types";
 
 const YES_NO = (value: any, fallback: "yes" | "no" = "no"): "yes" | "no" =>
   value === "yes" || value === true ? "yes" : value === "no" || value === false ? "no" : fallback;
@@ -21,6 +22,10 @@ export function buildServicePayload(body: any) {
     official_url: str(body.official_url),
     affiliate_url: str(body.affiliate_url),
     is_affiliate: YES_NO(body.is_affiliate),
+    affiliate_program_url: str(body.affiliate_program_url),
+    affiliate_network: str(body.affiliate_network),
+    commission: str(body.commission),
+    affiliate_notes: str(body.affiliate_notes),
     free_plan: YES_NO(body.free_plan),
     pricing_type: ["free", "freemium", "paid"].includes(body.pricing_type) ? body.pricing_type : "freemium",
     pricing: str(body.pricing),
@@ -43,6 +48,11 @@ export function buildServicePayload(body: any) {
     featured: YES_NO(body.featured),
     popular: YES_NO(body.popular),
     active: YES_NO(body.active, "yes"),
+    // Only overwrite the affiliate status when a valid one was submitted —
+    // an ordinary service edit must not silently reset it.
+    ...(AFFILIATE_STATUSES.includes(body.affiliate_status)
+      ? { affiliate_status: body.affiliate_status }
+      : {}),
   };
 }
 
@@ -84,4 +94,32 @@ export function buildBannerPayload(body: any) {
       : "home_top",
     active: YES_NO(body.active, "no"),
   };
+}
+
+/**
+ * Affiliate-only whitelist used by the Affiliate Manager. It never touches the
+ * catalog content of a service — only the monetisation fields.
+ */
+export function buildAffiliatePayload(body: any) {
+  const affiliateUrl = str(body.affiliate_url);
+  const requestedStatus = AFFILIATE_STATUSES.includes(body.affiliate_status)
+    ? body.affiliate_status
+    : undefined;
+
+  // Pasting a link is enough: the service is marked connected and enabled
+  // automatically, so the "Try it" button starts using it immediately.
+  const status = requestedStatus || (affiliateUrl ? "connected" : "not_connected");
+
+  const payload: Record<string, any> = {
+    affiliate_url: affiliateUrl,
+    affiliate_status: status,
+    is_affiliate: affiliateUrl && body.is_affiliate !== "no" && body.is_affiliate !== false ? "yes" : "no",
+  };
+
+  if (typeof body.affiliate_program_url === "string") payload.affiliate_program_url = str(body.affiliate_program_url);
+  if (typeof body.affiliate_network === "string") payload.affiliate_network = str(body.affiliate_network);
+  if (typeof body.commission === "string") payload.commission = str(body.commission);
+  if (typeof body.affiliate_notes === "string") payload.affiliate_notes = str(body.affiliate_notes);
+
+  return payload;
 }

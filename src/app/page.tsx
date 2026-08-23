@@ -16,11 +16,13 @@ const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 export default async function Home() {
   const { lang, t } = await getServerDict();
 
-  const [categories, featured, popular, newest, allServices] = await Promise.all([
+  const [categories, featured, popular, newest, affiliatePicks, allServices] = await Promise.all([
     getCategories(),
     getServices({ filter: "featured", sort: "rating", limit: 6 }),
     getServices({ filter: "popular", sort: "popular", limit: 8 }),
     getServices({ sort: "new", limit: 4 }),
+    // 💰 Affiliate Picks — rendered only when the owner actually connected links.
+    getServices({ filter: "affiliate", sort: "rating", limit: 6 }),
     getServices({ limit: 1 }),
   ]);
 
@@ -136,6 +138,24 @@ export default async function Home() {
             />
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {featured.items.map((service, index) => (
+                <ServiceCard key={service._id} service={service} delay={index * 40} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ---------------- AFFILIATE PICKS ---------------- */}
+        {affiliatePicks.items.length > 0 && (
+          <section>
+            <SectionHeading
+              title={`\u{1F4B0} ${t.home.affiliatePicks}`}
+              subtitle={t.home.affiliatePicksSub}
+              href="/catalog?filter=affiliate"
+              linkLabel={t.home.viewAll}
+              accent="cyan"
+            />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {affiliatePicks.items.map((service, index) => (
                 <ServiceCard key={service._id} service={service} delay={index * 40} />
               ))}
             </div>

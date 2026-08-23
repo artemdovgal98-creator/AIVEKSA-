@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
-import { categoryName, expandedCategory, pickLocalized, toTags } from "@/lib/localize";
+import { categoryName, expandedCategory, isAffiliatePartner, pickLocalized, toTags } from "@/lib/localize";
 import { FavoriteButton } from "./FavoriteButton";
-import { Star, ExternalLink, Flame } from "lucide-react";
+import { Star, ExternalLink, Flame, BadgeCheck } from "lucide-react";
 import type { ServiceRecord } from "@/lib/types";
 
 export function ServiceLogo({ service, className = "" }: { service: ServiceRecord; className?: string }) {
@@ -36,6 +36,9 @@ export function ServiceCard({ service, score, delay = 0 }: { service: ServiceRec
   const category = expandedCategory(service);
   const description = pickLocalized(service, "description", lang);
   const tags = toTags(service.tags).slice(0, 3);
+  // Only shown once the owner really connected an affiliate link — internal
+  // affiliate bookkeeping is never exposed to visitors.
+  const partner = isAffiliatePartner(service);
 
   return (
     <article
@@ -65,6 +68,12 @@ export function ServiceCard({ service, score, delay = 0 }: { service: ServiceRec
               <span className="flex items-center gap-0.5 rounded-full bg-amber-300/12 px-2 py-0.5 font-semibold text-amber-300">
                 <Star className="h-3 w-3" fill="currentColor" />
                 {service.rating.toFixed(1)}
+              </span>
+            )}
+            {partner && (
+              <span className="flex items-center gap-0.5 rounded-full bg-[color:var(--neon-violet)]/16 px-2 py-0.5 font-semibold text-[#d8b4fe]">
+                <BadgeCheck className="h-3 w-3" />
+                {t.admin.affiliate.partner}
               </span>
             )}
             {typeof score === "number" && (

@@ -17,6 +17,22 @@ export interface CategoryRecord {
   updatedAt?: string;
 }
 
+/** State of the affiliate partnership for a service. */
+export type AffiliateStatus =
+  | "not_connected"
+  | "pending"
+  | "connected"
+  | "rejected"
+  | "not_available";
+
+export const AFFILIATE_STATUSES: AffiliateStatus[] = [
+  "not_connected",
+  "pending",
+  "connected",
+  "rejected",
+  "not_available",
+];
+
 export interface ServiceRecord {
   _id: string;
   name: string;
@@ -27,6 +43,12 @@ export interface ServiceRecord {
   official_url?: string;
   affiliate_url?: string;
   is_affiliate?: YesNo;
+  /** Official page of the service affiliate program — never invented. */
+  affiliate_program_url?: string;
+  affiliate_network?: string;
+  commission?: string;
+  affiliate_status?: AffiliateStatus;
+  affiliate_notes?: string;
   free_plan?: YesNo;
   pricing_type?: "free" | "freemium" | "paid";
   pricing?: string;

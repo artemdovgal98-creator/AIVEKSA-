@@ -52,7 +52,7 @@ export interface ServiceQueryOptions {
   q?: string;
   categorySlug?: string;
   categoryId?: string;
-  filter?: "all" | "free" | "has_free" | "paid" | "popular" | "new" | "top_rated" | "featured";
+  filter?: "all" | "free" | "has_free" | "paid" | "popular" | "new" | "top_rated" | "featured" | "affiliate";
   sort?: "popular" | "rating" | "new" | "name";
   limit?: number;
   offset?: number;
@@ -150,6 +150,11 @@ export async function getServices(
       break;
     case "featured":
       dbFilter.featured = "yes";
+      break;
+    case "affiliate":
+      // 💰 Affiliate Picks — only services the owner really connected.
+      dbFilter.affiliate_status = "connected";
+      dbFilter.is_affiliate = "yes";
       break;
     default:
       break;

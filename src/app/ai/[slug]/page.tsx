@@ -6,6 +6,7 @@ import { getServiceBySlug, getSimilarServices, incrementServiceViews } from "@/l
 import {
   categoryName,
   expandedCategory,
+  isAffiliatePartner,
   pickLocalized,
   resolveTargetUrl,
   toList,
@@ -15,7 +16,7 @@ import { ServiceCard, ServiceLogo } from "@/components/site/ServiceCard";
 import { FavoriteButton } from "@/components/site/FavoriteButton";
 import { AdBanner } from "@/components/site/AdBanner";
 import { SectionHeading } from "@/components/site/SectionHeading";
-import { Check, ChevronLeft, Minus, Sparkles, Star, Tag } from "lucide-react";
+import { BadgeCheck, Check, ChevronLeft, Minus, Sparkles, Star, Tag } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -65,6 +66,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
   const cons = toList(pickLocalized(service, "cons", lang));
   const tags = toTags(service.tags);
   const target = resolveTargetUrl(service);
+  const partner = isAffiliatePartner(service);
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -129,6 +131,12 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
                   {t.card.freemium}
                 </span>
               )}
+              {partner && (
+                <span className="flex items-center gap-1 rounded-full bg-[color:var(--neon-violet)]/16 px-3 py-1 text-xs font-semibold text-[#d8b4fe]">
+                  <BadgeCheck className="h-3.5 w-3.5" />
+                  {t.admin.affiliate.partner}
+                </span>
+              )}
             </div>
 
             <h1 className="font-display mt-3 text-2xl font-extrabold text-white sm:text-4xl">
@@ -168,7 +176,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
           <FavoriteButton service={service} />
         </div>
 
-        {service.is_affiliate === "yes" && (
+        {partner && (
           <p className="relative mt-3 text-xs text-foreground/40">{t.service.affiliateNote}</p>
         )}
         {/* target is resolved server-side; /go/[slug] records the click and redirects there */}

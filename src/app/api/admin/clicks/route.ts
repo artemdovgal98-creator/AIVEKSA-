@@ -14,8 +14,23 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const limit = Math.min(Number(searchParams.get("limit")) || 50, 200);
     const offset = Number(searchParams.get("offset")) || 0;
+    const serviceSlug = (searchParams.get("service") || "").trim();
+
+    // Optional per-service view, used by the "View Clicks" action of the
+    // Affiliate Manager.
+    const filter: Record<string, any> = {};
+    if (serviceSlug) {
+      const serviceResult = await totalumSdk.crud.query("services", {
+        _filter: { slug: serviceSlug },
+        _limit: 1,
+      });
+      const service = (serviceResult.data || [])[0];
+      if (!service) return NextResponse.json({ ok: true, data: [], total: 0 });
+      filter.service = service._id;
+    }
 
     const result = await totalumSdk.crud.query("clicks", {
+      _filter: filter,
       _sort: { clicked_at: "desc" },
       _limit: limit,
       _offset: offset,
@@ -24,7 +39,10 @@ export async function GET(request: Request) {
     });
     if (result.errors) console.error("[api/admin/clicks] list errors:", result.errors);
 
-    const countResult = await totalumSdk.crud.query("clicks", { _aggregate: { _count: true } });
+    const countResult = await totalumSdk.crud.query("clicks", {
+      _filter: filter,
+      _aggregate: { _count: true },
+    });
 
     return NextResponse.json({
       ok: true,

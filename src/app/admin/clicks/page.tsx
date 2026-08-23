@@ -1,16 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
+import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useLang } from "@/lib/i18n/context";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { Loader2, X } from "lucide-react";
 import type { ClickRecord, ServiceRecord } from "@/lib/types";
 
 const PAGE_SIZE = 50;
 
-export default function AdminClicksPage() {
+function AdminClicksView() {
   const { t } = useLang();
+  const searchParams = useSearchParams();
+  const serviceSlug = searchParams.get("service") || "";
   const [clicks, setClicks] = useState<ClickRecord[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
@@ -18,8 +22,9 @@ export default function AdminClicksPage() {
 
   const load = async (nextOffset: number, append: boolean) => {
     setLoading(true);
+    const query = serviceSlug ? `&service=${encodeURIComponent(serviceSlug)}` : "";
     const response = await api.get<ClickRecord[]>(
-      `/api/admin/clicks?limit=${PAGE_SIZE}&offset=${nextOffset}`
+      `/api/admin/clicks?limit=${PAGE_SIZE}&offset=${nextOffset}${query}`
     );
     if (!response.ok) {
       console.error("[admin] failed to load clicks:", response.error);
@@ -34,13 +39,24 @@ export default function AdminClicksPage() {
   useEffect(() => {
     load(0, false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [serviceSlug]);
 
   return (
     <div className="space-y-4">
-      <p className="text-sm text-foreground/55">
-        {t.admin.stats.clicks}: <span className="font-bold text-white">{total}</span>
-      </p>
+      <div className="flex flex-wrap items-center gap-3">
+        <p className="text-sm text-foreground/55">
+          {t.admin.stats.clicks}: <span className="font-bold text-white">{total}</span>
+        </p>
+        {serviceSlug && (
+          <Link
+            href="/admin/clicks"
+            className="glass glass-hover flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-xs font-semibold text-foreground/75"
+          >
+            {serviceSlug}
+            <X className="h-3.5 w-3.5" />
+          </Link>
+        )}
+      </div>
 
       {loading && clicks.length === 0 ? (
         <div className="flex min-h-[30vh] items-center justify-center">
@@ -108,5 +124,13 @@ export default function AdminClicksPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function AdminClicksPage() {
+  return (
+    <Suspense fallback={<div className="py-16 text-center text-sm text-foreground/40">…</div>}>
+      <AdminClicksView />
+    </Suspense>
   );
 }
