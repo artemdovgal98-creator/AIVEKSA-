@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { totalumSdk } from "@/lib/totalum";
 import { readCount, readSum } from "@/lib/aggregate";
+import { loadConversions, totalsFor } from "@/lib/earnings";
 import type { CategoryRecord, ClickRecord, ServiceRecord } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -19,7 +20,10 @@ function startOfTodayIso(): string {
 }
 
 async function countClicksSince(iso?: string): Promise<number> {
-  const filter = iso ? { clicked_at: { gte: iso } } : {};
+  // manual_entry === "yes" marks a commission recorded by the owner / a webhook,
+  // not a real visitor click — it must never be counted as traffic.
+  const filter: Record<string, any> = { manual_entry: { ne: "yes" } };
+  if (iso) filter.clicked_at = { gte: iso };
   const result = await totalumSdk.crud.query("clicks", {
     _filter: filter,
     _aggregate: { _count: true },
@@ -59,6 +63,15 @@ export async function GET() {
       countClicksSince(daysAgoIso(30)),
     ]);
 
+    // Real commissions reported for these services (nothing estimated).
+    const conversions = await loadConversions();
+    const earnings = {
+      allTime: totalsFor(conversions),
+      week: totalsFor(conversions, daysAgoIso(7)),
+      month: totalsFor(conversions, daysAgoIso(30)),
+      entries: conversions.length,
+    };
+
     const totalServices = readCount(servicesTotal);
     const totalViews = readSum(viewsSum, "views");
     const affiliateCount = readCount(withAffiliate);
@@ -68,7 +81,7 @@ export async function GET() {
       _limit: 300,
       _select: { name: true, slug: true, logo_url: true },
       category: true,
-      clicks: { _count: true, _include: false },
+      clicks: { _count: true, _include: false, _filter: { manual_entry: { ne: "yes" } } },
     });
     if (topResult.errors) console.error("[api/admin/stats] top services errors:", topResult.errors);
 
@@ -98,6 +111,7 @@ export async function GET() {
       .slice(0, 6);
 
     const recentResult = await totalumSdk.crud.query("clicks", {
+      _filter: { manual_entry: { ne: "yes" } },
       _sort: { clicked_at: "desc" },
       _limit: 20,
       service: true,
@@ -116,6 +130,7 @@ export async function GET() {
         clicksToday,
         clicksWeek,
         clicksMonth,
+        earnings,
         withAffiliate: affiliateCount,
         withoutAffiliate: Math.max(totalServices - affiliateCount, 0),
         // CTR only makes sense once real page views exist.

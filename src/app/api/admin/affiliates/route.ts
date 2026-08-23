@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { totalumSdk } from "@/lib/totalum";
 import { readCount } from "@/lib/aggregate";
+import { loadConversions, totalsByService, totalsFor } from "@/lib/earnings";
 import type { CategoryRecord, ServiceRecord } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +21,8 @@ function startOfTodayIso(): string {
 
 /** Counts real affiliate clicks only — never estimated, never fabricated. */
 async function countAffiliateClicks(sinceIso?: string): Promise<number> {
-  const filter: Record<string, any> = { affiliate_click: "yes" };
+  // Manually recorded commissions are flagged `manual_entry` and never counted as traffic.
+  const filter: Record<string, any> = { affiliate_click: "yes", manual_entry: { ne: "yes" } };
   if (sinceIso) filter.clicked_at = { gte: sinceIso };
   const result = await totalumSdk.crud.query("clicks", { _filter: filter, _aggregate: { _count: true } });
   if (result.errors) console.error("[api/admin/affiliates] click count errors:", result.errors);
@@ -40,9 +42,13 @@ export async function GET() {
       _sort: { name: "asc" },
       _limit: 500,
       category: true,
-      clicks: { _count: true, _include: false },
+      clicks: { _count: true, _include: false, _filter: { manual_entry: { ne: "yes" } } },
     });
     if (result.errors) console.error("[api/admin/affiliates] list errors:", result.errors);
+
+    // Real reported commissions, grouped per service for the "Earned" column.
+    const conversions = await loadConversions();
+    const perService = totalsByService(conversions);
 
     const services = ((result.data || []) as any[]).map((service) => ({
       _id: service._id,
@@ -61,6 +67,8 @@ export async function GET() {
       active: service.active || "yes",
       views: service.views || 0,
       clicks: service._count?.clicks || 0,
+      earned: perService.get(service._id)?.earned || {},
+      pendingEarned: perService.get(service._id)?.pending || {},
     }));
 
     const [affiliateTotal, affiliateToday, affiliateWeek, affiliateMonth] = await Promise.all([
@@ -69,6 +77,13 @@ export async function GET() {
       countAffiliateClicks(daysAgoIso(7)),
       countAffiliateClicks(daysAgoIso(30)),
     ]);
+
+    const earnings = {
+      allTime: totalsFor(conversions),
+      week: totalsFor(conversions, daysAgoIso(7)),
+      month: totalsFor(conversions, daysAgoIso(30)),
+      entries: conversions.length,
+    };
 
     const ranked = [...services].sort((a, b) => b.clicks - a.clicks);
     const topServices = ranked.filter((service) => service.clicks > 0).slice(0, 10);
@@ -90,6 +105,7 @@ export async function GET() {
           affiliateToday,
           affiliateWeek,
           affiliateMonth,
+          earnings,
           withProgram: services.filter((service) => Boolean(service.affiliate_program_url)).length,
           withoutUrl: services.filter((service) => !service.affiliate_url).length,
           connected: services.filter((service) => service.affiliate_status === "connected").length,

@@ -76,6 +76,18 @@ export interface ServiceRecord {
   updatedAt?: string;
 }
 
+/** Payment state of a real commission reported by an affiliate network. */
+export type ConversionStatus = "pending" | "confirmed" | "paid" | "rejected";
+
+export const CONVERSION_STATUSES: ConversionStatus[] = ["pending", "confirmed", "paid", "rejected"];
+
+/** Statuses that represent money the owner actually received / will receive. */
+export const EARNED_STATUSES: ConversionStatus[] = ["confirmed", "paid"];
+
+export type Currency = "usd" | "eur";
+
+export const CURRENCIES: Currency[] = ["usd", "eur"];
+
 export interface ClickRecord {
   _id: string;
   service?: string | ServiceRecord | null;
@@ -86,6 +98,15 @@ export interface ClickRecord {
   country?: string;
   target_url?: string;
   affiliate_click?: YesNo;
+  /** Real commission reported for this click — stays empty until money is reported. */
+  earned_amount?: number;
+  conversion_status?: ConversionStatus;
+  currency?: Currency;
+  /**
+   * "yes" = commission entered by the admin / pushed by an affiliate webhook,
+   * not a real visitor click. Excluded from every click counter.
+   */
+  manual_entry?: YesNo;
   createdAt?: string;
 }
 

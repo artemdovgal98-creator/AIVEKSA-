@@ -18,7 +18,8 @@ export async function GET(request: Request) {
 
     // Optional per-service view, used by the "View Clicks" action of the
     // Affiliate Manager.
-    const filter: Record<string, any> = {};
+    // Commission entries (manual_entry) are money records, not visitor clicks.
+    const filter: Record<string, any> = { manual_entry: { ne: "yes" } };
     if (serviceSlug) {
       const serviceResult = await totalumSdk.crud.query("services", {
         _filter: { slug: serviceSlug },

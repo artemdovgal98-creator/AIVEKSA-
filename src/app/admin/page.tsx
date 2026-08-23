@@ -5,8 +5,10 @@ import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
 import { api } from "@/lib/api";
 import { categoryName } from "@/lib/localize";
+import { formatMoney, moneyIsZero, type Money } from "@/lib/money";
 import {
   Eye,
+  Wallet,
   Link2,
   Link2Off,
   Loader2,
@@ -26,6 +28,18 @@ interface TopService {
   clicks: number;
 }
 
+interface EarningsTotals {
+  earned: Money;
+  pending: Money;
+}
+
+interface EarningsBlock {
+  allTime: EarningsTotals;
+  week: EarningsTotals;
+  month: EarningsTotals;
+  entries: number;
+}
+
 interface Stats {
   servicesTotal: number;
   servicesActive: number;
@@ -35,6 +49,7 @@ interface Stats {
   clicksToday: number;
   clicksWeek: number;
   clicksMonth: number;
+  earnings: EarningsBlock;
   withAffiliate: number;
   withoutAffiliate: number;
   ctr: number | null;
@@ -90,6 +105,15 @@ export default function AdminDashboardPage() {
     { label: t.admin.stats.withoutAffiliate, value: stats.withoutAffiliate, icon: Link2Off, accent: "text-rose-300" },
   ];
 
+  const e = t.admin.earnings;
+  const empty = { earned: {}, pending: {} };
+  const earnings = stats.earnings || { allTime: empty, week: empty, month: empty, entries: 0 };
+  const earningCards = [
+    { label: e.allTime, value: earnings.allTime.earned },
+    { label: e.week, value: earnings.week.earned },
+    { label: e.month, value: earnings.month.earned },
+  ];
+
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
@@ -104,6 +128,53 @@ export default function AdminDashboardPage() {
           );
         })}
       </div>
+
+      {/* Общая комиссия / Заработано — только реальные подтверждённые суммы */}
+      <section className="glass-strong animate-fade-up relative overflow-hidden rounded-2xl p-5">
+        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[color:var(--neon-violet)]/20 blur-3xl" />
+        <div className="relative">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5">
+              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#4c6fff] to-[#a855f7]">
+                <Wallet className="h-4.5 w-4.5 text-white" />
+              </span>
+              <div>
+                <h2 className="font-display text-base font-bold text-white">{e.title}</h2>
+                <p className="text-[11px] text-foreground/45">{e.subtitle}</p>
+              </div>
+            </div>
+            <Link
+              href="/admin/affiliates"
+              className="text-sm font-semibold text-[color:var(--neon-cyan)] hover:underline"
+            >
+              {t.admin.affiliates} →
+            </Link>
+          </div>
+
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            {earningCards.map((card, index) => (
+              <div key={card.label} className="rounded-2xl bg-white/5 px-4 py-3.5">
+                <p
+                  className={`font-display font-extrabold ${
+                    index === 0
+                      ? "bg-gradient-to-r from-[#8ab4ff] to-[#d8b4fe] bg-clip-text text-2xl text-transparent"
+                      : "text-xl text-white"
+                  }`}
+                >
+                  {formatMoney(card.value)}
+                </p>
+                <p className="mt-0.5 text-[11px] text-foreground/45">{card.label}</p>
+              </div>
+            ))}
+          </div>
+
+          {!moneyIsZero(earnings.allTime.pending) && (
+            <p className="mt-3 text-xs text-amber-300/85">
+              {e.pending}: {formatMoney(earnings.allTime.pending)}
+            </p>
+          )}
+        </div>
+      </section>
 
       <div className="glass flex items-center gap-3 rounded-2xl px-5 py-4">
         <Percent className="h-5 w-5 text-[color:var(--neon-cyan)]" />
