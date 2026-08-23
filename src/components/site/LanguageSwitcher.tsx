@@ -40,12 +40,12 @@ export function LanguageSwitcher({ compact = false }: { compact?: boolean }) {
           {!compact && <span className="uppercase tracking-wide">{current.code}</span>}
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="glass-strong min-w-44 border-white/10">
+      <DropdownMenuContent align="end" sideOffset={8} className="panel-solid min-w-48 space-y-1 rounded-2xl p-2">
         {LANGS.map((entry) => (
           <DropdownMenuItem
             key={entry.code}
             onClick={() => handleChange(entry.code)}
-            className="flex cursor-pointer items-center gap-2"
+            className="flex cursor-pointer items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium focus:bg-white/10"
           >
             <span className="text-base">{entry.flag}</span>
             <span className="flex-1">{entry.label}</span>

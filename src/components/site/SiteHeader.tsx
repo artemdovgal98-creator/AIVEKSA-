@@ -135,9 +135,9 @@ export function SiteHeader() {
                 <Menu className="h-5 w-5" />
               </button>
             </SheetTrigger>
-            <SheetContent side="right" className="glass-strong w-[86vw] max-w-sm border-white/10 p-0">
+            <SheetContent side="right" className="panel-solid w-[86vw] max-w-sm p-0">
               <SheetTitle className="sr-only">{t.nav.menu}</SheetTitle>
-              <div className="flex h-full flex-col gap-1 overflow-y-auto p-5 pt-6">
+              <div className="flex h-full flex-col gap-2 overflow-y-auto p-5 pt-6">
                 <p className="font-display mb-3 text-lg font-bold">
                   AI<span className="neon-text">VEXA</span>
                 </p>
@@ -147,8 +147,8 @@ export function SiteHeader() {
                     <Link
                       key={link.href}
                       href={link.href}
-                      className={`flex items-center gap-3 rounded-xl px-3 py-3 text-base font-medium transition-colors ${
-                        isActive(link.href) ? "bg-white/10 text-white" : "text-foreground/80 hover:bg-white/5"
+                      className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-base font-medium transition-colors ${
+                        isActive(link.href) ? "bg-white/10 text-white" : "text-foreground/80 hover:bg-white/8"
                       }`}
                     >
                       <Icon className="h-5 w-5 text-[color:var(--neon-cyan)]" />
@@ -157,12 +157,12 @@ export function SiteHeader() {
                   );
                 })}
 
-                <div className="my-3 h-px bg-white/10" />
+                <div className="my-2 h-px bg-white/10" />
 
                 {role === "admin" && (
                   <Link
                     href="/admin"
-                    className="flex items-center gap-3 rounded-xl px-3 py-3 text-base font-medium text-foreground/80 hover:bg-white/5"
+                    className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-base font-medium text-foreground/80 hover:bg-white/8"
                   >
                     <Shield className="h-5 w-5 text-[color:var(--neon-violet)]" />
                     {t.nav.admin}
@@ -173,7 +173,7 @@ export function SiteHeader() {
                   <>
                     <Link
                       href="/profile"
-                      className="flex items-center gap-3 rounded-xl px-3 py-3 text-base font-medium text-foreground/80 hover:bg-white/5"
+                      className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-base font-medium text-foreground/80 hover:bg-white/8"
                     >
                       <User className="h-5 w-5 text-[color:var(--neon-cyan)]" />
                       {t.nav.profile}
@@ -181,14 +181,14 @@ export function SiteHeader() {
                     <button
                       type="button"
                       onClick={() => signOut().then(() => (window.location.href = "/"))}
-                      className="flex items-center gap-3 rounded-xl px-3 py-3 text-left text-base font-medium text-foreground/80 hover:bg-white/5"
+                      className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-left text-base font-medium text-foreground/80 hover:bg-white/8"
                     >
                       <LogOut className="h-5 w-5" />
                       {t.nav.logout}
                     </button>
                   </>
                 ) : (
-                  <div className="mt-2 flex flex-col gap-2">
+                  <div className="mt-3 flex flex-col gap-2.5">
                     <Link href="/login">
                       <Button variant="outline" className="w-full border-white/15 bg-white/5">
                         {t.nav.login}

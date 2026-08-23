@@ -228,6 +228,20 @@ body {
   -webkit-backdrop-filter: blur(20px);
 }
 
+/*
+ * Overlay panels: the mobile drawer and the header dropdowns.
+ * These float over real content, so they use a nearly solid deep blue-grey
+ * instead of the translucent glass surfaces — the page behind must not read
+ * through them.
+ */
+.panel-solid {
+  background: rgba(17, 19, 33, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(28px) saturate(140%);
+  -webkit-backdrop-filter: blur(28px) saturate(140%);
+  box-shadow: 0 30px 70px -24px rgba(0, 0, 0, 0.85);
+}
+
 .glass-hover {
   transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease, background 0.25s ease;
 }
