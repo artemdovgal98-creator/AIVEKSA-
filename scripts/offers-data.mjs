@@ -97,39 +97,41 @@ export const OFFERS = {
     ["Искусственный интеллект в сфере безопасности — iOS", "", "cpa"],
   ],
   awin: [
-    ["3DMakerpro (Global)", "", "cpa"],
-    ["ЛОНГГЕР ТЕХНОЛОГИЯ ИНК.", "", "cpa"],
-    ["Компания Inner Technology LLC", "", "cpa"],
-    ["GUANGDONG KANSEPT TECHNOLOGY CO.LTD", "", "cpa"],
-    ["Зарегистрированный FDA костюм Sweetmyo® AI для оказания неотложной медицинской помощи на всё тело", "", "cpa"],
-    ["Welling AI Health & Diet Coach", "", "cpa"],
-    ["Умный Лис", "", "cpa"],
-    ["Эверблог США", "", "cpa"],
-    ["Траверсеон", "", "cpa"],
-    ["ИМАЛЕНТ", "", "cpa"],
-    ["Riibase CRM", "", "cpa"],
-    ["Shenzhen Vapesourcing Electronics Co., Ltd.", "", "cpa"],
-    ["Издательство «Самостоятельный совет»", "", "cpa"],
-    ["MiniTool Software Ltd", "", "cpa"],
-    ["HB Digital Inc (DealFuel)", "", "cpa"],
-    ["Ghostwriter Express", "", "cpa"],
-    ["Электрон", "", "cpa"],
-    ["Кодеянг", "", "cpa"],
-    ["Доступ к аудио- и видеотехнологиям", "", "cpa"],
-    ["Магазин NITECORE", "", "cpa"],
-    ["Shenzhen MaiQiWei Technology Co., Ltd", "", "cpa"],
-    ["70mai Technology Limited", "", "cpa"],
-    ["Wondershare Global Limited", "", "cpa"],
-    ["AirDroid", "", "cpa"],
-    ["keysfan", "", "cpa"],
-    ["HB Digital Inc (photowhoa)", "", "cpa"],
-    ["Maniana AI (США)", "", "cpa"],
-    ["Академия экспертов по искусственному интеллекту", "", "cpa"],
-    ["Волшебное сияние", "", "cpa"],
-    ["Pai Technology Inc.", "", "cpa"],
-    ["3D-принтер Nova3D", "", "cpa"],
-    ["Мобильная сфера", "", "cpa"],
-    ["Эйнстар", "", "cpa"],
-    ["Nutrinixy — AI-трекер калорий", "", "cpa"],
+    ["Awin: 3DMakerpro Global", "", "cpa"],  // 3DMakerpro (Global)
+    ["Awin: Longger Technology", "", "cpa"],  // ЛОНГГЕР ТЕХНОЛОГИЯ ИНК.
+    ["Awin: Inner Technology Co", "", "cpa"],  // Компания Inner Technology LLC
+    ["Awin: Guangdong Kansept Tech", "", "cpa"],  // GUANGDONG KANSEPT TECHNOLOGY CO.LTD
+    ["Awin: Sweetmyo AI Health Care", "", "cpa"],  // Зарегистрированный FDA костюм Sweetmyo® AI для оказания неотложной медицинской помощи на всё тело
+    ["Awin: Welling AI Health Coach", "", "cpa"],  // Welling AI Health & Diet Coach
+    ["Awin: Smart Fox App", "", "cpa"],  // Умный Лис
+    ["Awin: Everblog US", "", "cpa"],  // Эверблог США
+    ["Awin: Traverseon Platform", "", "cpa"],  // Траверсеон
+    ["Awin: Imalent Store", "", "cpa"],  // ИМАЛЕНТ
+    ["Awin: Riibase CRM System", "", "cpa"],  // Riibase CRM
+    ["Awin: Vapesourcing Electronics", "", "cpa"],  // Shenzhen Vapesourcing Electronics Co., Ltd.
+    ["Awin: Independent Advice Pub", "", "cpa"],  // Издательство «Самостоятельный совет»
+    ["Awin: MiniTool Software", "", "cpa"],  // MiniTool Software Ltd
+    ["Awin: DealFuel Digital", "", "cpa"],  // HB Digital Inc (DealFuel)
+    ["Awin: Ghostwriter Express", "", "cpa"],  // Ghostwriter Express
+    ["Awin: Electron App", "", "cpa"],  // Электрон
+    ["Awin: Codeyang Platform", "", "cpa"],  // Кодеянг
+    ["Awin: Audio Video Tech Access", "", "cpa"],  // Доступ к аудио- и видеотехнологиям
+    ["Awin: Nitecore Store", "", "cpa"],  // Магазин NITECORE
+    ["Awin: Maiqiwei Tech", "", "cpa"],  // Shenzhen MaiQiWei Technology Co., Ltd
+    ["Awin: 70mai Tech Limited", "", "cpa"],  // 70mai Technology Limited
+    ["Awin: Wondershare Global", "", "cpa"],  // Wondershare Global Limited
+    ["Awin: AirDroid Service", "", "cpa"],  // AirDroid
+    ["Awin: Keysfan Store", "", "cpa"],  // keysfan
+    ["Awin: Photowhoa Media", "", "cpa"],  // HB Digital Inc (photowhoa)
+    ["Awin: Maniana AI US", "", "cpa"],  // Maniana AI (США)
+    ["Awin: AI Expert Academy", "", "cpa"],  // Академия экспертов по искусственному интеллекту
+    ["Awin: Magic Glow Service", "", "cpa"],  // Волшебное сияние
+    ["Awin: Pai Technology Inc", "", "cpa"],  // Pai Technology Inc.
+    ["Awin: Nova3D Printer", "", "cpa"],  // 3D-принтер Nova3D
+    ["Awin: Mobile Sphere Hub", "", "cpa"],  // Мобильная сфера
+    ["Awin: Einstar System", "", "cpa"],  // Эйнстар
+    ["Awin: Nutrinixy AI Calorie Tracker", "", "cpa"],  // Nutrinixy — AI-трекер калорий
+    ["Awin: Awin Partner Slot 1", "", "cpa"],  // свободный слот под новый оффер Awin
+    ["Awin: Awin Partner Slot 2", "", "cpa"],  // свободный слот под новый оффер Awin
   ],
 };
