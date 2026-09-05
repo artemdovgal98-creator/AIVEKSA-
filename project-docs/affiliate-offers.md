@@ -68,3 +68,53 @@ API: `GET /api/admin/networks`, `GET|POST /api/admin/offers`, `PUT|DELETE /api/a
 `/offers` — витрина офферов, сгруппированных по сетям. Показывает **только** офферы, у которых
 владелец сохранил ссылку и которые включены. Пока ссылок нет — страница показывает пустое
 состояние. Ссылка добавлена в шапку сайта, в `middleware.ts` (публичный маршрут) и в `sitemap.xml`.
+
+---
+
+## Каталог: 25 партнёрских элементов (категория «AI-компаньоны»)
+
+Категория `companions` (💬 AI-компаньоны / AI-компаньйони / AI companions) содержит
+25 карточек каталога, добавленных по списку владельца. Каждая карточка привязана
+1:1 к своему офферу CrakRevenue (позиции 1–25), поэтому ссылка, сохранённая на
+оффере, сразу используется кнопкой «Попробовать» на карточке.
+
+Куда вставлять ссылку — любой из трёх вариантов, все ведут к одному результату:
+
+1. **Админка → Партнёрские офферы → CrakRevenue** — инлайн-поле + «Сохранить» у каждого оффера.
+2. **Админка → Affiliate Manager** — инлайн-редактор ссылки у сервиса (ставит `is_affiliate: yes` и статус `connected`).
+3. **Админка → Сервисы** — поле `affiliate_url` в редакторе карточки.
+
+Приоритет перехода в `/go/[slug]`: собственная ссылка сервиса → ссылка привязанного
+оффера → официальный сайт. Пока ссылки нет, переход ведёт на страницу сервиса
+`/ai/[slug]`, а не в никуда.
+
+| # | Карточка каталога | Оффер CrakRevenue |
+|---|-------------------|-------------------|
+| 1 | Companion AI - Type A | Candy.ai - PPS (10335) |
+| 2 | Virtual GF - Type A | Девушка GPT - PPS (10046) |
+| 3 | Dream Partner - Type A | DreamCompanion - PPS (10480) |
+| 4 | Assistant GO - Type A | Golove.ai - PPS (10463) |
+| 5 | Chat Room - Type A | OhChat - PPS (10464) |
+| 6 | Secure AI - Type A | Secrets.ai - PPS (10381) |
+| 7 | Secure AI - Pro | Secrets.ai - PPS Премиум (10515) |
+| 8 | GF Assistant - Pro | Girlfriend GPT - PPS Премиум (10407) |
+| 9 | Smart Link Net | AI Smartlink (9403) |
+| 10 | Companion AI - Type B | Candy.ai - PPS (10022) |
+| 11 | Companion AI - RevShare | Candy.ai - RevShare (9022) |
+| 12 | Short Video AI | CandyShorts - PPS (10468) |
+| 13 | Link Multi CPA | DarLink AI - Мульти-CPA (10470) |
+| 14 | Link Standard | DarLink AI - PPS (10345) |
+| 15 | Link RevShare | DarLink AI - RevShare (10344) |
+| 16 | Dondi Tool AI | Dondi.ai - PPS (10418) |
+| 17 | Dream BF - RevShare | DreamBF.ai - RevShare (9183) |
+| 18 | Dream GF - RevShare | Dreamgf.ai - RevShare (9057) |
+| 19 | Dreamz Platform | Dreamz.ai - PPS (10460) |
+| 20 | H-Content AI | eHentai.ai - RevShare (9182) |
+| 21 | Fan Content - Type A | Фанфинити - PPS (10141) |
+| 22 | Fan Content - Revenue | Fanfinity - Доля выручки (10140) |
+| 23 | Fantasy Platform | Fantasy.Ai - Доля выручки (10057) |
+| 24 | Cam Stream - Type A | FlirtCam.ai - PPS (10404) |
+| 25 | Cam Stream - Revenue | FlirtCam.ai - RevShare (10403) |
+
+Пересоздать/обновить: `scripts/seed-companions.mjs` (идемпотентный, сохранённые
+ссылки никогда не перезаписываются). Данные карточек — `scripts/companions-data.mjs`.
