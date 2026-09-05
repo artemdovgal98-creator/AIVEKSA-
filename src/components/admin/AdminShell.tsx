@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLang } from "@/lib/i18n/context";
-import { BarChart3, FileText, Handshake, Image, LayoutGrid, MousePointerClick, Sparkles, ArrowLeft } from "lucide-react";
+import { BarChart3, FileText, Handshake, Image, LayoutGrid, MousePointerClick, Sparkles, Tags, ArrowLeft } from "lucide-react";
 
 const ITEMS = [
   { href: "/admin", key: "dashboard", icon: BarChart3 },
   { href: "/admin/services", key: "services", icon: Sparkles },
   { href: "/admin/affiliates", key: "affiliates", icon: Handshake },
+  { href: "/admin/offers", key: "offers", icon: Tags },
   { href: "/admin/categories", key: "categories", icon: LayoutGrid },
   { href: "/admin/articles", key: "articles", icon: FileText },
   { href: "/admin/banners", key: "banners", icon: Image },

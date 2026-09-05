@@ -1,5 +1,5 @@
 import { slugify } from "@/lib/localize";
-import { AFFILIATE_STATUSES } from "@/lib/types";
+import { AFFILIATE_STATUSES, PAYOUT_MODELS } from "@/lib/types";
 
 const YES_NO = (value: any, fallback: "yes" | "no" = "no"): "yes" | "no" =>
   value === "yes" || value === true ? "yes" : value === "no" || value === false ? "no" : fallback;
@@ -122,4 +122,35 @@ export function buildAffiliatePayload(body: any) {
   if (typeof body.affiliate_notes === "string") payload.affiliate_notes = str(body.affiliate_notes);
 
   return payload;
+}
+
+/**
+ * Whitelist for an affiliate offer. The affiliate URL is the only field that
+ * really matters for monetisation, so it is always normalised (trimmed, and a
+ * bare domain gets the https:// scheme it needs to be a valid redirect target).
+ */
+export function buildOfferPayload(body: any) {
+  const payload: Record<string, any> = {};
+
+  if (typeof body.offer_name === "string") payload.offer_name = str(body.offer_name);
+  if (typeof body.external_id === "string") payload.external_id = str(body.external_id);
+  if (typeof body.notes === "string") payload.notes = str(body.notes);
+  if (typeof body.affiliate_url === "string") payload.affiliate_url = normalizeUrl(body.affiliate_url);
+  if (PAYOUT_MODELS.includes(body.payout_model)) payload.payout_model = body.payout_model;
+  if (body.active === "yes" || body.active === "no") payload.active = body.active;
+  if (typeof body.order_position !== "undefined") payload.order_position = num(body.order_position, 0);
+
+  // `null` explicitly unbinds a relation, `undefined` leaves it untouched.
+  if (typeof body.network !== "undefined") payload.network = str(body.network) || null;
+  if (typeof body.service !== "undefined") payload.service = str(body.service) || null;
+
+  return payload;
+}
+
+/** Adds the scheme a redirect needs; leaves an empty value empty. */
+export function normalizeUrl(value: any): string {
+  const url = str(value);
+  if (!url) return "";
+  if (/^https?:\/\//i.test(url)) return url;
+  return `https://${url.replace(/^\/+/, "")}`;
 }

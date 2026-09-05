@@ -41,6 +41,7 @@ const publicRoutes = [
   "/tools",
   "/guide",
   "/favorites",
+  "/offers",
   "/go",
   "/sitemap.xml",
   "/robots.txt",

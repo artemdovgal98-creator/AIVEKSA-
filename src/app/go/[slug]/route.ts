@@ -4,6 +4,7 @@ import { getServiceBySlug } from "@/lib/catalog";
 import { getSessionUser } from "@/lib/admin-auth";
 import { totalumSdk } from "@/lib/totalum";
 import { resolveTargetUrl } from "@/lib/localize";
+import { getServiceOfferUrl } from "@/lib/offers";
 import { LANG_COOKIE } from "@/lib/i18n/server";
 import { cookies } from "next/headers";
 
@@ -31,7 +32,18 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       return NextResponse.redirect(`${origin}/catalog`, 302);
     }
 
-    const targetUrl = resolveTargetUrl(service);
+    // Priority: the service's own affiliate link, then the affiliate offer the
+    // admin bound to this service, then the official site.
+    let targetUrl = resolveTargetUrl(service);
+    let boundOfferUrl = "";
+    if (!(service.affiliate_url || "").trim() || service.is_affiliate === "no") {
+      boundOfferUrl = await getServiceOfferUrl(service._id);
+      if (boundOfferUrl) {
+        targetUrl = boundOfferUrl;
+        console.log(`[go] using bound affiliate offer link for ${slug}`);
+      }
+    }
+
     if (!targetUrl) {
       console.warn("[go] service has no target url:", slug);
       return NextResponse.redirect(`${origin}/ai/${slug}`, 302);
@@ -54,7 +66,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
       language: cookieStore.get(LANG_COOKIE)?.value || "",
       device: detectDevice(headerList.get("user-agent") || ""),
       target_url: targetUrl,
-      affiliate_click: service.is_affiliate === "yes" && service.affiliate_url ? "yes" : "no",
+      affiliate_click:
+        (service.is_affiliate === "yes" && service.affiliate_url) || boundOfferUrl ? "yes" : "no",
     };
     if (country && country !== "XX") clickData.country = country;
     if (sessionUser?.id) clickData.user = sessionUser.id;

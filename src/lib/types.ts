@@ -147,3 +147,45 @@ export interface AdminSettingRecord {
   setting_value?: string;
   description?: string;
 }
+
+/** Payout model of an affiliate offer, exactly as the network labels it. */
+export type PayoutModel = "pps" | "revshare" | "multi_cpa" | "smartlink" | "cpa" | "other";
+
+export const PAYOUT_MODELS: PayoutModel[] = ["pps", "revshare", "multi_cpa", "smartlink", "cpa", "other"];
+
+/** One of the three affiliate networks the offers are split into. */
+export interface AffiliateNetworkRecord {
+  _id: string;
+  name: string;
+  slug: string;
+  website?: string;
+  description?: string;
+  /** HEX accent used by the admin badges. */
+  accent_color?: string;
+  order_position?: number;
+  active?: YesNo;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/**
+ * A single offer inside a network. `affiliate_url` is the unique tracking link
+ * the owner pastes in the admin panel — every outbound click uses it.
+ */
+export interface AffiliateOfferRecord {
+  _id: string;
+  offer_name: string;
+  /** Offer ID inside the network (e.g. CrakRevenue 10335). Empty for networks without public IDs. */
+  external_id?: string;
+  affiliate_url?: string;
+  payout_model?: PayoutModel;
+  /** string id when not expanded, object when expanded through query() */
+  network?: string | AffiliateNetworkRecord | null;
+  /** Optional binding to a catalog AI — its "Try it" button then uses this link. */
+  service?: string | ServiceRecord | null;
+  notes?: string;
+  order_position?: number;
+  active?: YesNo;
+  createdAt?: string;
+  updatedAt?: string;
+}

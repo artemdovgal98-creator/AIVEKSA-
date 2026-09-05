@@ -9,7 +9,7 @@ import { api } from "@/lib/api";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Sparkles, LayoutGrid, Wand2, Wrench, Star, BookOpen, User, Shield, LogOut } from "lucide-react";
+import { Menu, Sparkles, LayoutGrid, Wand2, Wrench, Star, BookOpen, Tags, User, Shield, LogOut } from "lucide-react";
 
 export function SiteHeader() {
   const { t } = useLang();
@@ -54,6 +54,7 @@ export function SiteHeader() {
     { href: "/match", label: t.nav.match, icon: Wand2 },
     { href: "/tools", label: t.nav.tools, icon: Wrench },
     { href: "/guide", label: t.nav.guide, icon: BookOpen },
+    { href: "/offers", label: t.nav.offers, icon: Tags },
     { href: "/favorites", label: t.nav.favorites, icon: Star },
   ];
 
