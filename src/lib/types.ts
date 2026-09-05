@@ -189,3 +189,66 @@ export interface AffiliateOfferRecord {
   createdAt?: string;
   updatedAt?: string;
 }
+
+/** Kind of free material the Telegram bot delivers. */
+export type FolderContentType = "prompts" | "guide" | "instruction";
+
+/** `free` is handed out immediately, `referral` needs invited friends. */
+export type FolderAccessType = "free" | "referral";
+
+export interface PromptFolderRecord {
+  _id: string;
+  title: string;
+  slug?: string;
+  description?: string;
+  /** Emoji shown on the bot menu button. */
+  icon?: string;
+  content_type?: FolderContentType;
+  /** Message body the bot sends when the material is unlocked. */
+  content?: string;
+  /** Totalum file field — always displayed/sent through its `url`. */
+  file?: { name: string; url: string } | null;
+  external_url?: string;
+  access_type?: FolderAccessType;
+  required_referrals?: number;
+  order_position?: number;
+  active?: YesNo;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface TelegramUserRecord {
+  _id: string;
+  telegram_id: string;
+  username?: string;
+  first_name?: string;
+  last_name?: string;
+  language_code?: string;
+  referral_code?: string;
+  referrals_count?: number;
+  started_at?: string;
+  last_active_at?: string;
+  blocked?: YesNo;
+  /** Linked site account, set when the visitor connects Telegram from /referrals. */
+  user?: string | { _id: string; name?: string; email?: string } | null;
+  /** The subscriber whose referral link brought this person. */
+  invited_by?: string | TelegramUserRecord | null;
+  createdAt?: string;
+}
+
+export interface TelegramDeliveryRecord {
+  _id: string;
+  telegram_user?: string | TelegramUserRecord | null;
+  folder?: string | PromptFolderRecord | null;
+  delivered_at?: string;
+  delivery_reason?: "request" | "referral_reward" | "welcome";
+}
+
+/** Bot configuration stored in `admin_settings`. */
+export interface TelegramBotSettings {
+  token: string;
+  username: string;
+  secret: string;
+  welcome: string;
+  webhookUrl: string;
+}

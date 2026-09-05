@@ -154,3 +154,34 @@ export function normalizeUrl(value: any): string {
   if (/^https?:\/\//i.test(url)) return url;
   return `https://${url.replace(/^\/+/, "")}`;
 }
+
+/** Whitelist for a prompt folder / guide managed from the Telegram admin tab. */
+export function buildFolderPayload(body: any) {
+  const title = str(body.title);
+  const accessType = body.access_type === "referral" ? "referral" : "free";
+  const required = Math.max(Math.round(num(body.required_referrals, 0)), 0);
+
+  const payload: Record<string, any> = {
+    title,
+    slug: str(body.slug) || slugify(title),
+    description: str(body.description),
+    icon: str(body.icon) || "📁",
+    content: str(body.content),
+    external_url: normalizeUrl(body.external_url),
+    content_type: ["prompts", "guide", "instruction"].includes(body.content_type)
+      ? body.content_type
+      : "prompts",
+    access_type: accessType,
+    // A referral material always needs at least one invite, a free one needs none.
+    required_referrals: accessType === "referral" ? Math.max(required, 1) : 0,
+    order_position: num(body.order_position, 99),
+    active: YES_NO(body.active, "yes"),
+  };
+
+  // `file` is only touched when the client explicitly sends it: `null` clears
+  // the upload, a file-name id links a freshly uploaded document.
+  if (body.file === null) payload.file = null;
+  else if (typeof body.file === "string" && body.file.trim()) payload.file = { name: body.file.trim() };
+
+  return payload;
+}

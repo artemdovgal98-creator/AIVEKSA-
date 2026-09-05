@@ -7,7 +7,7 @@ import { SearchBox } from "@/components/site/SearchBox";
 import { HeroExamples } from "@/components/site/HeroExamples";
 import { SectionHeading } from "@/components/site/SectionHeading";
 import { AdBanner } from "@/components/site/AdBanner";
-import { Wand2, Wrench, Sparkles, ArrowRight } from "lucide-react";
+import { Wand2, Wrench, Sparkles, Send, ArrowRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -163,7 +163,7 @@ export default async function Home() {
         )}
 
         {/* ---------------- CTA BLOCKS ---------------- */}
-        <section className="grid gap-3 md:grid-cols-2">
+        <section className="grid gap-3 md:grid-cols-3">
           <Link
             href="/match"
             className="glass glass-hover neon-border group relative overflow-hidden rounded-2xl p-6"
@@ -188,6 +188,20 @@ export default async function Home() {
             <p className="mt-2 text-sm text-foreground/65">{t.home.toolsCtaSub}</p>
             <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[color:var(--neon-cyan)]">
               {t.home.toolsCtaBtn}
+              <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </span>
+          </Link>
+
+          <Link
+            href="/referrals"
+            className="glass glass-hover neon-border group relative overflow-hidden rounded-2xl p-6"
+          >
+            <div className="pointer-events-none absolute -right-8 -top-8 h-32 w-32 rounded-full bg-[#229ED9]/30 blur-3xl" />
+            <Send className="h-8 w-8 text-[#229ED9]" />
+            <h3 className="font-display mt-4 text-lg font-bold text-white">{t.referralPage.title}</h3>
+            <p className="mt-2 text-sm text-foreground/65">{t.referralPage.subtitle}</p>
+            <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[color:var(--neon-cyan)]">
+              {t.referralPage.openBot}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </span>
           </Link>
