@@ -89,12 +89,12 @@ export const OFFERS = {
     ["CrakRevenue Bonus Link", "", "multi_cpa"],
   ],
   mylead: [
-    ["Анкета опроса (Сертифицированный бухгалтер CPA) — Вариант 1", "", "cpa"],
-    ["Анкета опроса (Сертифицированный бухгалтер CPA) — Вариант 2", "", "cpa"],
-    ["MyLovely Ai - WorldWide", "", "cpa"],
-    ["RexTrix AI - Android - США", "", "cpa"],
-    ["EvaAI", "", "cpa"],
-    ["Искусственный интеллект в сфере безопасности — iOS", "", "cpa"],
+    ["MyLead: Survey Form CPA Variant 1", "", "cpa"],  // Анкета опроса (Сертифицированный бухгалтер CPA) — Вариант 1
+    ["MyLead: Survey Form CPA Variant 2", "", "cpa"],  // Анкета опроса (Сертифицированный бухгалтер CPA) — Вариант 2
+    ["MyLead: MyLovely AI WorldWide", "", "cpa"],  // MyLovely Ai - WorldWide
+    ["MyLead: RexTrix AI Android US", "", "cpa"],  // RexTrix AI - Android - США
+    ["MyLead: EvaAI Service", "", "cpa"],  // EvaAI
+    ["MyLead: AI Security iOS", "", "cpa"],  // Искусственный интеллект в сфере безопасности — iOS
   ],
   awin: [
     ["Awin: 3DMakerpro Global", "", "cpa"],  // 3DMakerpro (Global)

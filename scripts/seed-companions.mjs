@@ -62,7 +62,7 @@ function buildRecord(entry, categoryId) {
     name: entry.name,
     slug: entry.slug,
     category: categoryId,
-    logo_url: "",
+    logo_url: "/brand/crakrevenue-whale.svg",
     official_url: "",
     // The tracking link is unique per account — the owner pastes it in the admin panel.
     affiliate_url: "",
