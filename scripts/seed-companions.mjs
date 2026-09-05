@@ -1,5 +1,5 @@
 /**
- * AIVEXA — seeds the 25 partner catalog entries and binds each one to its
+ * AIVEXA — seeds the 50 partner catalog entries and binds each one to its
  * CrakRevenue offer, so the link the owner pastes in Admin → Партнёрские офферы
  * (or Admin → Affiliate Manager) is the one the catalog card opens.
  *

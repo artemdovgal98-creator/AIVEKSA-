@@ -86,6 +86,7 @@ export const OFFERS = {
     ["Swipey - PPS", "10100", "pps"],
     ["Xotic AI - PPS", "10349", "pps"],
     ["Xotic AI - Доля выручки", "10401", "revshare"],
+    ["CrakRevenue Bonus Link", "", "multi_cpa"],
   ],
   mylead: [
     ["Анкета опроса (Сертифицированный бухгалтер CPA) — Вариант 1", "", "cpa"],

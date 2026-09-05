@@ -71,11 +71,11 @@ API: `GET /api/admin/networks`, `GET|POST /api/admin/offers`, `PUT|DELETE /api/a
 
 ---
 
-## Каталог: 25 партнёрских элементов (категория «AI-компаньоны»)
+## Каталог: 50 партнёрских элементов (категория «AI-компаньоны»)
 
 Категория `companions` (💬 AI-компаньоны / AI-компаньйони / AI companions) содержит
-25 карточек каталога, добавленных по списку владельца. Каждая карточка привязана
-1:1 к своему офферу CrakRevenue (позиции 1–25), поэтому ссылка, сохранённая на
+50 карточек каталога, добавленных по списку владельца. Каждая карточка привязана
+1:1 к своему офферу CrakRevenue (позиции 1–50), поэтому ссылка, сохранённая на
 оффере, сразу используется кнопкой «Попробовать» на карточке.
 
 Куда вставлять ссылку — любой из трёх вариантов, все ведут к одному результату:
@@ -115,6 +115,34 @@ API: `GET /api/admin/networks`, `GET|POST /api/admin/offers`, `PUT|DELETE /api/a
 | 23 | Fantasy Platform | Fantasy.Ai - Доля выручки (10057) |
 | 24 | Cam Stream - Type A | FlirtCam.ai - PPS (10404) |
 | 25 | Cam Stream - Revenue | FlirtCam.ai - RevShare (10403) |
+| 26 | Generator Content - RevShare | GeneratePorn.ai - RevShare (10512) |
+| 27 | Generator Content - PPS | GeneratePorn.ai - PPS (10513) |
+| 28 | Harder Platform | Get-Harder - PPS (10182) |
+| 29 | Joi Assistant - Type A | Джой - PPS (10415) |
+| 30 | Joi Assistant - Tier 1 Pro | Joi - PPS - T1 (Премиум) (10443) |
+| 31 | Joi Assistant - Lifetime | Joi - Revshare Lifetime (10222) |
+| 32 | Kupid AI - PPS | Kupid.ai - PPS (10469) |
+| 33 | Kupid AI - RevShare | Kupid.ai - RevShare (9619) |
+| 34 | Lovel Platform | Lovel.ai - PPS (10423) |
+| 35 | Lovescape - Type A | Лавскейп - PPS (10223) |
+| 36 | Lovescape - RevShare | Lovescape - RevShare (10224) |
+| 37 | Lusy Chat Platform | LusyChat - PPS (10467) |
+| 38 | MyLovely AI - Type A | MyLovely Ai - PPS (10417) |
+| 39 | MyLovely AI - Revenue | MyLovely Ai - Доля дохода (10318) |
+| 40 | Ourdream AI - Type A | ourdream.ai - PPS (10138) |
+| 41 | Ourdream AI - Pro | ourdream.ai - PPS (Премиум) (10402) |
+| 42 | Ourdream AI - Revenue | ourdream.ai - Доля дохода (10139) |
+| 43 | Ourdream AI - H Content | ourdream.ai - PPS Хентай (10482) |
+| 44 | Promptchan Platform | Promptchan - PPS (10257) |
+| 45 | Secure AI - Lifetime | Secrets.ai - RevShare (10406) |
+| 46 | Multi-CPA Network 2 | Более острый - Мульти-CPA (10219) |
+| 47 | Swipey Platform | Swipey - PPS (10100) |
+| 48 | Xotic AI - Type A | Xotic AI - PPS (10349) |
+| 49 | Xotic AI - Revenue | Xotic AI - Доля выручки (10401) |
+| 50 | CrakRevenue Bonus Link | CrakRevenue Bonus Link (без ID) |
 
 Пересоздать/обновить: `scripts/seed-companions.mjs` (идемпотентный, сохранённые
 ссылки никогда не перезаписываются). Данные карточек — `scripts/companions-data.mjs`.
+
+Оффер №50 «CrakRevenue Bonus Link» не имеет ID в дашборде сети — он заведён в
+`scripts/offers-data.mjs` с пустым `external_id`, поле для ссылки работает так же.
