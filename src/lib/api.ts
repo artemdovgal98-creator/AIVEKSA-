@@ -51,4 +51,14 @@ export const api = {
   delete<T>(url: string): Promise<ApiResponse<T>> {
     return request<T>(url, { method: "DELETE" });
   },
+
+  /**
+   * Multipart upload. The server answers with the Totalum file-name ids that
+   * are then linked to a record's file field.
+   */
+  upload<T>(url: string, files: File[] | FileList): Promise<ApiResponse<T>> {
+    const form = new FormData();
+    for (const file of Array.from(files)) form.append("file", file, file.name);
+    return request<T>(url, { method: "POST", body: form });
+  },
 };

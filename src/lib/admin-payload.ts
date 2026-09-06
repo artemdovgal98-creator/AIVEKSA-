@@ -1,5 +1,15 @@
 import { slugify } from "@/lib/localize";
-import { AFFILIATE_STATUSES, PAYOUT_MODELS } from "@/lib/types";
+import {
+  AFFILIATE_STATUSES,
+  MAX_PROFILE_PHOTOS,
+  MAX_SERVICE_LOGOS,
+  PAYOUT_MODELS,
+  PROFILE_LINK_FIELDS,
+  PROFILE_TEXT_FIELDS,
+  RADAR_IMPORTANCES,
+  RADAR_TYPES,
+  toFileLinks,
+} from "@/lib/types";
 
 const YES_NO = (value: any, fallback: "yes" | "no" = "no"): "yes" | "no" =>
   value === "yes" || value === true ? "yes" : value === "no" || value === false ? "no" : fallback;
@@ -11,49 +21,68 @@ const num = (value: any, fallback = 0): number => {
   return Number.isFinite(parsed) ? parsed : fallback;
 };
 
-/** Whitelists the fields an admin may write to a service — no mass assignment. */
-export function buildServicePayload(body: any) {
-  const name = str(body.name);
-  return {
-    name,
-    slug: str(body.slug) || slugify(name),
-    category: str(body.category) || undefined,
-    logo_url: str(body.logo_url),
-    official_url: str(body.official_url),
-    affiliate_url: str(body.affiliate_url),
-    is_affiliate: YES_NO(body.is_affiliate),
-    affiliate_program_url: str(body.affiliate_program_url),
-    affiliate_network: str(body.affiliate_network),
-    commission: str(body.commission),
-    affiliate_notes: str(body.affiliate_notes),
-    free_plan: YES_NO(body.free_plan),
-    pricing_type: ["free", "freemium", "paid"].includes(body.pricing_type) ? body.pricing_type : "freemium",
-    pricing: str(body.pricing),
-    rating: Math.min(Math.max(num(body.rating, 0), 0), 5),
-    popularity: Math.max(num(body.popularity, 0), 0),
-    tags: str(body.tags),
-    keywords: str(body.keywords),
-    description_ru: str(body.description_ru),
-    description_uk: str(body.description_uk),
-    description_en: str(body.description_en),
-    features_ru: str(body.features_ru),
-    features_uk: str(body.features_uk),
-    features_en: str(body.features_en),
-    pros_ru: str(body.pros_ru),
-    pros_uk: str(body.pros_uk),
-    pros_en: str(body.pros_en),
-    cons_ru: str(body.cons_ru),
-    cons_uk: str(body.cons_uk),
-    cons_en: str(body.cons_en),
-    featured: YES_NO(body.featured),
-    popular: YES_NO(body.popular),
-    active: YES_NO(body.active, "yes"),
-    // Only overwrite the affiliate status when a valid one was submitted —
-    // an ordinary service edit must not silently reset it.
-    ...(AFFILIATE_STATUSES.includes(body.affiliate_status)
-      ? { affiliate_status: body.affiliate_status }
-      : {}),
-  };
+/** Keys of a service that are plain trimmed strings. */
+const SERVICE_TEXT_FIELDS = [
+  "logo_url", "official_url", "affiliate_url", "affiliate_program_url", "affiliate_network",
+  "commission", "affiliate_notes", "pricing", "tags", "keywords",
+  "title_ru", "title_uk", "title_en",
+  "description_ru", "description_uk", "description_en",
+  "features_ru", "features_uk", "features_en",
+  "pros_ru", "pros_uk", "pros_en",
+  "cons_ru", "cons_uk", "cons_en",
+] as const;
+
+/** Yes/no switches of a service with the default used when a record is created. */
+const SERVICE_FLAG_FIELDS: [string, "yes" | "no"][] = [
+  ["is_affiliate", "no"],
+  ["free_plan", "no"],
+  ["featured", "no"],
+  ["popular", "no"],
+  ["active", "yes"],
+];
+
+/**
+ * Whitelists the fields an admin may write to a service — no mass assignment.
+ *
+ * PARTIAL BY DESIGN: only the keys the client actually submitted are written.
+ * The service edit card shows a short form, so anything it does not send
+ * (features, pros/cons, tags, pricing…) must keep its stored value.
+ */
+export function buildServicePayload(body: any, mode: "create" | "update" = "update") {
+  const source = body || {};
+  const has = (key: string) => Object.prototype.hasOwnProperty.call(source, key);
+  const payload: Record<string, any> = {};
+
+  const name = str(source.name);
+  if (has("name")) payload.name = name;
+  if (has("slug") || mode === "create") payload.slug = str(source.slug) || slugify(name);
+  // `null` unbinds the relation, an absent key leaves it untouched.
+  if (has("category")) payload.category = str(source.category) || null;
+
+  for (const key of SERVICE_TEXT_FIELDS) if (has(key)) payload[key] = str(source[key]);
+  for (const [key, fallback] of SERVICE_FLAG_FIELDS) if (has(key)) payload[key] = YES_NO(source[key], fallback);
+
+  if (has("pricing_type")) {
+    payload.pricing_type = ["free", "freemium", "paid"].includes(source.pricing_type)
+      ? source.pricing_type
+      : "freemium";
+  }
+  if (has("rating")) payload.rating = Math.min(Math.max(num(source.rating, 0), 0), 5);
+  if (has("popularity")) payload.popularity = Math.max(num(source.popularity, 0), 0);
+
+  // Custom logos: the client posts the complete list it wants to keep.
+  if (has("logo_files")) payload.logo_files = toFileLinks(source.logo_files, MAX_SERVICE_LOGOS);
+
+  // Only overwrite the affiliate status when a valid one was submitted —
+  // an ordinary service edit must not silently reset it.
+  if (AFFILIATE_STATUSES.includes(source.affiliate_status)) payload.affiliate_status = source.affiliate_status;
+
+  if (mode === "create") {
+    for (const [key, fallback] of SERVICE_FLAG_FIELDS) if (!has(key)) payload[key] = fallback;
+    if (!has("pricing_type")) payload.pricing_type = "freemium";
+  }
+
+  return payload;
 }
 
 export function buildCategoryPayload(body: any) {
@@ -72,7 +101,7 @@ export function buildCategoryPayload(body: any) {
 
 export function buildArticlePayload(body: any) {
   const title = str(body.title);
-  return {
+  const payload: Record<string, any> = {
     title,
     slug: str(body.slug) || slugify(title),
     description: str(body.description),
@@ -82,18 +111,91 @@ export function buildArticlePayload(body: any) {
     language: ["ru", "uk", "en"].includes(body.language) ? body.language : "ru",
     published: YES_NO(body.published, "no"),
   };
+
+  // `cover` is only touched when the client explicitly sends it.
+  const cover = firstFileName(body.cover);
+  if (body.cover === null || cover === "") payload.cover = null;
+  else if (cover) payload.cover = { name: cover };
+
+  return payload;
+}
+
+/** First file-name id of whatever the client sent for a single-file field. */
+function firstFileName(value: any): string | undefined {
+  if (typeof value === "undefined") return undefined;
+  if (value === null) return "";
+  const entry = Array.isArray(value) ? value[0] : value;
+  const name = typeof entry === "string" ? entry : entry?.name;
+  return typeof name === "string" ? name.trim() : "";
 }
 
 export function buildBannerPayload(body: any) {
-  return {
+  const payload: Record<string, any> = {
     title: str(body.title),
     banner_image: str(body.banner_image),
-    banner_url: str(body.banner_url),
+    banner_url: normalizeUrl(body.banner_url),
     position: ["home_top", "home_bottom", "catalog", "service_page"].includes(body.position)
       ? body.position
       : "home_top",
+    order_position: num(body.order_position, 0),
     active: YES_NO(body.active, "no"),
   };
+
+  const file = firstFileName(body.banner_file);
+  if (body.banner_file === null || file === "") payload.banner_file = null;
+  else if (file) payload.banner_file = { name: file };
+
+  return payload;
+}
+
+/** Whitelist for one AI Radar entry — every field is managed from the admin panel. */
+export function buildRadarPayload(body: any) {
+  const source = body || {};
+  const payload: Record<string, any> = {
+    title_ru: str(source.title_ru),
+    title_uk: str(source.title_uk),
+    title_en: str(source.title_en),
+    summary_ru: str(source.summary_ru),
+    summary_uk: str(source.summary_uk),
+    summary_en: str(source.summary_en),
+    radar_type: RADAR_TYPES.includes(source.radar_type) ? source.radar_type : "update",
+    importance: RADAR_IMPORTANCES.includes(source.importance) ? source.importance : "normal",
+    source_name: str(source.source_name),
+    source_url: normalizeUrl(source.source_url),
+    image_url: str(source.image_url),
+    published_at: str(source.published_at) || new Date().toISOString(),
+    pinned: YES_NO(source.pinned, "no"),
+    active: YES_NO(source.active, "yes"),
+    order_position: num(source.order_position, 0),
+  };
+
+  if (typeof source.service !== "undefined") payload.service = str(source.service) || null;
+  if (typeof source.category !== "undefined") payload.category = str(source.category) || null;
+
+  const cover = firstFileName(source.cover);
+  if (source.cover === null || cover === "") payload.cover = null;
+  else if (cover) payload.cover = { name: cover };
+
+  return payload;
+}
+
+/**
+ * Whitelist for the public profile a user edits about themselves.
+ * Partial by design: only the submitted keys are written.
+ */
+export function buildProfilePayload(body: any) {
+  const source = body || {};
+  const has = (key: string) => Object.prototype.hasOwnProperty.call(source, key);
+  const payload: Record<string, any> = {};
+
+  if (has("name")) payload.name = str(source.name);
+  for (const key of PROFILE_TEXT_FIELDS) if (has(key)) payload[key] = str(source[key]);
+  for (const key of PROFILE_LINK_FIELDS) if (has(key)) payload[key] = normalizeUrl(source[key]);
+  if (has("show_contacts")) payload.show_contacts = YES_NO(source.show_contacts, "no");
+  if (has("photos")) payload.photos = toFileLinks(source.photos, MAX_PROFILE_PHOTOS);
+  if (has("language") && ["ru", "uk", "en"].includes(source.language)) payload.language = source.language;
+
+  return payload;
 }
 
 /**

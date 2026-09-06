@@ -88,3 +88,41 @@ export async function getNetworks(): Promise<AffiliateNetworkRecord[]> {
     throw err;
   }
 }
+
+/**
+ * Consolidation of the former "Partner Offers" admin section into the AI
+ * service card: when the owner saves an affiliate link on a service, the same
+ * link is pushed to every offer bound to it, so the public offer wall and
+ * /go/offer/<id> keep working from a single place.
+ *
+ * An empty link never clears an offer — only a real URL is propagated.
+ */
+export async function syncServiceOffers(serviceId: string, affiliateUrl: string): Promise<number> {
+  const url = String(affiliateUrl || "").trim();
+  if (!serviceId || !url) return 0;
+
+  const result = await totalumSdk.crud.query("affiliate_offers", {
+    _filter: { service: serviceId },
+    _limit: 50,
+  });
+  if (result.errors) {
+    console.error("[offers] syncServiceOffers query errors:", result.errors);
+    throw new Error(JSON.stringify(result.errors));
+  }
+
+  const offers = (result.data || []) as unknown as AffiliateOfferRecord[];
+  let updated = 0;
+  for (const offer of offers) {
+    if (String(offer.affiliate_url || "").trim() === url) continue;
+    const patch = await totalumSdk.crud.editRecordById("affiliate_offers", offer._id, {
+      affiliate_url: url,
+    });
+    if (patch.errors) {
+      console.error("[offers] syncServiceOffers update errors for", offer._id, patch.errors);
+      throw new Error(JSON.stringify(patch.errors));
+    }
+    updated += 1;
+  }
+  if (updated) console.log(`[offers] synced ${updated} offer(s) of service ${serviceId} to ${url}`);
+  return updated;
+}

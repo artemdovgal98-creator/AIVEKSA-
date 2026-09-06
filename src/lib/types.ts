@@ -3,6 +3,55 @@
 export type Lang = "ru" | "uk" | "en";
 export type YesNo = "yes" | "no";
 
+/**
+ * A file stored by Totalum. `name` is the internal id, `url` is the signed URL
+ * that must ALWAYS be used to display or download the file.
+ */
+export interface TotalumFile {
+  name: string;
+  url?: string;
+}
+
+/** First usable URL of a single/multiple Totalum file field. */
+export function fileUrl(field: TotalumFile | TotalumFile[] | null | undefined): string {
+  if (!field) return "";
+  const first = Array.isArray(field) ? field[0] : field;
+  return first?.url || "";
+}
+
+/** Every usable URL of a multiple Totalum file field. */
+export function fileUrls(field: TotalumFile | TotalumFile[] | null | undefined): string[] {
+  if (!field) return [];
+  const list = Array.isArray(field) ? field : [field];
+  return list.map((entry) => entry?.url || "").filter(Boolean);
+}
+
+/** Hard limit for every upload in the app — 10 MB per file. */
+export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+
+/** Maximum number of custom logos on a catalog service. */
+export const MAX_SERVICE_LOGOS = 3;
+
+/** Maximum number of photos on a user profile. */
+export const MAX_PROFILE_PHOTOS = 5;
+
+/**
+ * Normalises what a client sends for a multiple-file field into the shape
+ * Totalum expects. The client always posts the COMPLETE list it wants to keep,
+ * so removing an entry is simply posting a shorter array.
+ */
+export function toFileLinks(value: any, max: number): { name: string }[] {
+  if (!Array.isArray(value)) return [];
+  const names: string[] = [];
+  for (const entry of value) {
+    const name = typeof entry === "string" ? entry : entry?.name;
+    if (typeof name === "string" && name.trim() && !names.includes(name.trim())) {
+      names.push(name.trim());
+    }
+  }
+  return names.slice(0, max).map((name) => ({ name }));
+}
+
 export interface CategoryRecord {
   _id: string;
   slug: string;
@@ -40,6 +89,11 @@ export interface ServiceRecord {
   /** string id when not expanded, object when expanded through query() */
   category?: string | CategoryRecord | null;
   logo_url?: string;
+  /** Custom logos uploaded by the owner — the first one overrides `logo_url`. */
+  logo_files?: TotalumFile[] | null;
+  title_ru?: string;
+  title_uk?: string;
+  title_en?: string;
   official_url?: string;
   affiliate_url?: string;
   is_affiliate?: YesNo;
@@ -124,6 +178,8 @@ export interface ArticleRecord {
   description?: string;
   content?: string;
   image_url?: string;
+  /** Uploaded cover; takes priority over `image_url`. */
+  cover?: TotalumFile | null;
   category?: string | CategoryRecord | null;
   language?: Lang;
   published?: YesNo;
@@ -132,14 +188,110 @@ export interface ArticleRecord {
   updatedAt?: string;
 }
 
+export const BANNER_POSITIONS = ["home_top", "home_bottom", "catalog", "service_page"] as const;
+export type BannerPosition = (typeof BANNER_POSITIONS)[number];
+
 export interface BannerRecord {
   _id: string;
   title?: string;
+  /** External image URL — used only when no file was uploaded. */
   banner_image?: string;
+  /** Uploaded image; takes priority over `banner_image`. */
+  banner_file?: TotalumFile | null;
   banner_url?: string;
-  position?: "home_top" | "home_bottom" | "catalog" | "service_page";
+  position?: BannerPosition;
+  order_position?: number;
   active?: YesNo;
+  createdAt?: string;
 }
+
+/** Kind of entry in the AI Radar feed. */
+export const RADAR_TYPES = ["model", "tool", "update", "research", "funding", "trend"] as const;
+export type RadarType = (typeof RADAR_TYPES)[number];
+
+export const RADAR_IMPORTANCES = ["low", "normal", "high"] as const;
+export type RadarImportance = (typeof RADAR_IMPORTANCES)[number];
+
+/** One item of the AI Radar feed, fully managed from the admin panel. */
+export interface RadarRecord {
+  _id: string;
+  title_ru?: string;
+  title_uk?: string;
+  title_en?: string;
+  summary_ru?: string;
+  summary_uk?: string;
+  summary_en?: string;
+  radar_type?: RadarType;
+  importance?: RadarImportance;
+  source_name?: string;
+  source_url?: string;
+  image_url?: string;
+  cover?: TotalumFile | null;
+  published_at?: string;
+  pinned?: YesNo;
+  active?: YesNo;
+  order_position?: number;
+  service?: string | ServiceRecord | null;
+  category?: string | CategoryRecord | null;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+/** Public profile + contact block of a site user (the owner's is shown on the home page). */
+export interface UserProfileRecord {
+  _id: string;
+  name?: string;
+  email?: string;
+  role?: string;
+  language?: string | null;
+  image?: string;
+  title_ru?: string;
+  title_uk?: string;
+  title_en?: string;
+  bio_ru?: string;
+  bio_uk?: string;
+  bio_en?: string;
+  photos?: TotalumFile[] | null;
+  link_1?: string;
+  link_2?: string;
+  link_3?: string;
+  link_4?: string;
+  link_5?: string;
+  phone_1?: string;
+  phone_2?: string;
+  telegram_url?: string;
+  twitter_url?: string;
+  tiktok_url?: string;
+  facebook_url?: string;
+  instagram_url?: string;
+  youtube_url?: string;
+  linkedin_url?: string;
+  discord_url?: string;
+  website_url?: string;
+  show_contacts?: YesNo;
+  referral_code?: string;
+  referrals_count?: number;
+  createdAt?: string;
+}
+
+/** Profile fields the owner edits — used by the profile form and the API. */
+export const PROFILE_TEXT_FIELDS = [
+  "title_ru", "title_uk", "title_en",
+  "bio_ru", "bio_uk", "bio_en",
+  "phone_1", "phone_2",
+] as const;
+
+export const PROFILE_LINK_FIELDS = [
+  "link_1", "link_2", "link_3", "link_4", "link_5",
+  "telegram_url", "twitter_url", "tiktok_url", "facebook_url",
+  "instagram_url", "youtube_url", "linkedin_url", "discord_url", "website_url",
+] as const;
+
+export const SOCIAL_FIELDS = [
+  "telegram_url", "twitter_url", "tiktok_url", "facebook_url",
+  "instagram_url", "youtube_url", "linkedin_url", "discord_url", "website_url",
+] as const;
+export type SocialField = (typeof SOCIAL_FIELDS)[number];
 
 export interface AdminSettingRecord {
   _id: string;
@@ -251,4 +403,9 @@ export interface TelegramBotSettings {
   secret: string;
   welcome: string;
   webhookUrl: string;
+  /**
+   * Public address of the site, set in the admin panel. The temporary preview
+   * link must never be baked in, so the bot buttons rely on this value.
+   */
+  publicUrl: string;
 }

@@ -1,4 +1,4 @@
-import type { CategoryRecord, Lang, ServiceRecord } from "@/lib/types";
+import { fileUrl, type ArticleRecord, type BannerRecord, type CategoryRecord, type Lang, type RadarRecord, type ServiceRecord } from "@/lib/types";
 
 const FALLBACK_ORDER: Lang[] = ["ru", "en", "uk"];
 
@@ -25,6 +25,44 @@ export function categoryName(category: CategoryRecord | null | undefined, lang: 
 
 export function serviceDescription(service: ServiceRecord, lang: Lang): string {
   return pickLocalized(service, "description", lang);
+}
+
+/**
+ * Heading of a catalog card: the localized title when the owner filled one,
+ * otherwise the company name.
+ */
+export function serviceTitle(service: ServiceRecord, lang: Lang): string {
+  return pickLocalized(service, "title", lang) || service.name || "";
+}
+
+/**
+ * Logo shown on a card. A custom uploaded image always wins over the default
+ * network/brand icon, which in turn wins over the letter fallback.
+ */
+export function serviceLogo(service: ServiceRecord): string {
+  return fileUrl(service.logo_files) || service.logo_url || "";
+}
+
+/** Article cover: the uploaded file wins over an external URL. */
+export function articleCover(article: ArticleRecord): string {
+  return fileUrl(article.cover) || article.image_url || "";
+}
+
+/** Banner image: the uploaded file wins over an external URL. */
+export function bannerImage(banner: BannerRecord): string {
+  return fileUrl(banner.banner_file) || banner.banner_image || "";
+}
+
+export function radarTitle(item: RadarRecord, lang: Lang): string {
+  return pickLocalized(item, "title", lang);
+}
+
+export function radarSummary(item: RadarRecord, lang: Lang): string {
+  return pickLocalized(item, "summary", lang);
+}
+
+export function radarImage(item: RadarRecord): string {
+  return fileUrl(item.cover) || item.image_url || "";
 }
 
 /** Splits a newline separated long-string field into a clean list. */

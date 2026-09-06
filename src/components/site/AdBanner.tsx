@@ -1,4 +1,5 @@
 import { getBanners } from "@/lib/catalog";
+import { bannerImage } from "@/lib/localize";
 import type { BannerRecord } from "@/lib/types";
 
 /**
@@ -7,18 +8,22 @@ import type { BannerRecord } from "@/lib/types";
  */
 export async function AdBanner({ position }: { position: NonNullable<BannerRecord["position"]> }) {
   const banners = await getBanners(position);
-  const banner = banners[0];
-  if (!banner?.banner_image || !banner?.banner_url) return null;
+  // The first banner with a usable image (uploaded file first) and a target URL.
+  const banner = banners.find((entry) => bannerImage(entry) && entry.banner_url);
+  if (!banner) return null;
+
+  const image = bannerImage(banner);
+  console.log(`[ad-banner] rendering "${banner.title || banner._id}" at ${position}`);
 
   return (
     <a
       href={banner.banner_url}
       target="_blank"
       rel="nofollow sponsored noopener noreferrer"
-      className="glass glass-hover block overflow-hidden rounded-2xl"
+      className="glass glass-hover block min-w-0 overflow-hidden rounded-2xl"
     >
-      <img src={banner.banner_image} alt={banner.title || "Ad"} className="h-auto w-full object-cover" />
-      {banner.title && <p className="px-4 py-3 text-sm text-foreground/70">{banner.title}</p>}
+      <img src={image} alt={banner.title || "Ad"} className="h-auto w-full max-w-full object-cover" />
+      {banner.title && <p className="break-anywhere px-4 py-3 text-sm text-foreground/70">{banner.title}</p>}
     </a>
   );
 }

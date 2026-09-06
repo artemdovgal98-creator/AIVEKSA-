@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { totalumSdk } from "@/lib/totalum";
 import { buildServicePayload } from "@/lib/admin-payload";
+import { syncServiceOffers } from "@/lib/offers";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +21,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       console.error("[api/admin/services] update errors:", updated.errors);
       return NextResponse.json({ ok: false, error: updated.errors }, { status: 400 });
     }
+    // The affiliate link lives on the service card now — push it to the offers
+    // bound to this service so the public offer wall stays in sync.
+    if (typeof payload.affiliate_url === "string" && payload.affiliate_url) {
+      await syncServiceOffers(id, payload.affiliate_url);
+    }
+
     console.log("[api/admin/services] updated", id, "by", admin._id);
     return NextResponse.json({ ok: true, data: updated.data });
   } catch (err: any) {

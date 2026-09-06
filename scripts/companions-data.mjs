@@ -9,10 +9,10 @@
 
 export const COMPANION_CATEGORY = {
   slug: "companions",
-  icon: "💬",
-  name_ru: "AI-компаньоны",
-  name_uk: "AI-компаньйони",
-  name_en: "AI companions",
+  icon: "🐋",
+  name_ru: "CrakRevenue — AI-компаньоны",
+  name_uk: "CrakRevenue — AI-компаньйони",
+  name_en: "CrakRevenue — AI companions",
   order_position: 16,
   keywords:
     "компаньон, собеседник, чат, общение, персонаж, компаньйон, співрозмовник, спілкування, companion, chat, persona, roleplay",

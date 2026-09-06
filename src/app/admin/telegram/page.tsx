@@ -33,6 +33,7 @@ interface BotSettings {
   username: string;
   welcome: string;
   webhookUrl: string;
+  publicUrl: string;
   hasSecret: boolean;
 }
 
@@ -83,6 +84,7 @@ export default function AdminTelegramPage() {
   const [showToken, setShowToken] = useState(false);
   const [welcome, setWelcome] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [publicUrl, setPublicUrl] = useState("");
   const [busy, setBusy] = useState("");
 
   const [folders, setFolders] = useState<PromptFolderRecord[]>([]);
@@ -102,6 +104,7 @@ export default function AdminTelegramPage() {
     setToken(response.data.settings.token || "");
     setWelcome(response.data.settings.welcome || "");
     setWebhookUrl(response.data.settings.webhookUrl || "");
+    setPublicUrl(response.data.settings.publicUrl || "");
   }, [t.common.error]);
 
   const loadFolders = useCallback(async () => {
@@ -136,7 +139,7 @@ export default function AdminTelegramPage() {
 
   const saveSettings = async () => {
     setBusy("settings");
-    const response = await api.put("/api/admin/telegram", { welcome, webhookUrl });
+    const response = await api.put("/api/admin/telegram", { welcome, webhookUrl, publicUrl });
     setBusy("");
     if (!response.ok) {
       console.error("[admin/telegram] save settings failed:", response.error);
@@ -387,6 +390,20 @@ export default function AdminTelegramPage() {
             <Link2 className="h-4.5 w-4.5 text-[color:var(--neon-violet)]" />
             {b.webhookTitle}
           </h3>
+
+          <label className="mt-4 mb-1.5 block text-xs font-semibold uppercase tracking-wide text-foreground/45">
+            Публичный адрес сайта
+          </label>
+          <input
+            value={publicUrl}
+            onChange={(event) => setPublicUrl(event.target.value)}
+            placeholder="https://aivexa.totalum-project.com"
+            className="w-full rounded-xl bg-white/5 px-3.5 py-2.5 font-mono text-xs text-white placeholder:text-foreground/25 focus:outline-none focus:ring-1 focus:ring-[color:var(--neon-blue)]/50"
+          />
+          <p className="mt-2 text-xs text-foreground/40">
+            Используется кнопкой «Открыть AIVEXA» в боте и как база для webhook. Сохраняется кнопкой
+            «Сохранить настройки».
+          </p>
 
           <label className="mt-4 mb-1.5 block text-xs font-semibold uppercase tracking-wide text-foreground/45">
             {b.webhookUrl}

@@ -26,8 +26,11 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({}));
     const payload = buildBannerPayload(body);
-    if (!payload.banner_image || !payload.banner_url) {
-      return NextResponse.json({ ok: false, error: "Image and target URL are required" }, { status: 400 });
+    if ((!payload.banner_image && !payload.banner_file) || !payload.banner_url) {
+      return NextResponse.json(
+        { ok: false, error: "Нужны изображение (файл или ссылка) и ссылка перехода" },
+        { status: 400 }
+      );
     }
 
     const created = await totalumSdk.crud.createRecord("banners", payload);

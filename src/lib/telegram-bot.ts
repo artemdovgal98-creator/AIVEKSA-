@@ -24,7 +24,13 @@ import type { PromptFolderRecord, TelegramBotSettings, TelegramUserRecord } from
  * receives every folder that is free or already unlocked by their invites.
  */
 
-const SITE_URL = process.env.NEXT_PUBLIC_APP_URL || "";
+/**
+ * Public address of the site used by the bot buttons. The owner sets it in
+ * Admin → Telegram; the env fallback only helps during local development.
+ */
+function siteUrl(settings: TelegramBotSettings): string {
+  return (settings.publicUrl || process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+}
 
 const TYPE_LABEL: Record<string, string> = {
   prompts: "📂 Промпты",
@@ -59,7 +65,8 @@ function mainMenuKeyboard(settings: TelegramBotSettings) {
       { text: "📊 Мои приглашения", callback_data: "menu:stats" },
     ],
   ];
-  if (SITE_URL) rows.push([{ text: "🌐 Открыть AIVEXA", url: SITE_URL }]);
+  const site = siteUrl(settings);
+  if (site) rows.push([{ text: "🌐 Открыть AIVEXA", url: site }]);
   return { inline_keyboard: rows };
 }
 

@@ -1,7 +1,7 @@
 import "server-only";
 import { totalumSdk } from "@/lib/totalum";
 import { readCount } from "@/lib/aggregate";
-import type { ArticleRecord, BannerRecord, CategoryRecord, Lang, ServiceRecord } from "@/lib/types";
+import type { ArticleRecord, BannerRecord, CategoryRecord, Lang, RadarRecord, RadarType, ServiceRecord } from "@/lib/types";
 
 /**
  * Server-side catalog data access. Every read goes through totalumSdk.crud.query()
@@ -288,6 +288,81 @@ export async function getArticles(lang?: Lang, limit = 30): Promise<ArticleRecor
   return (result.data || []) as unknown as ArticleRecord[];
 }
 
+export interface ArticleQueryOptions {
+  lang?: Lang;
+  q?: string;
+  categorySlug?: string;
+  limit?: number;
+}
+
+/**
+ * Searchable article feed for the AI Guide. Built for a large library:
+ * text search over title / description / content plus a category filter.
+ */
+export async function searchArticles(
+  options: ArticleQueryOptions = {}
+): Promise<{ items: ArticleRecord[]; total: number }> {
+  const { lang, q, categorySlug, limit = 60 } = options;
+  const filter: Record<string, any> = { published: "yes" };
+  if (lang) filter.language = lang;
+
+  if (categorySlug) {
+    const category = await getCategoryBySlug(categorySlug);
+    if (!category) return { items: [], total: 0 };
+    filter.category = category._id;
+  }
+
+  const term = (q || "").trim();
+  if (term) {
+    const regex = escapeRegex(term);
+    filter._or = ["title", "description", "content"].map((field) => ({
+      [field]: { regex, options: "i" },
+    }));
+  }
+
+  const result = await totalumSdk.crud.query("articles", {
+    _filter: filter,
+    _sort: { createdAt: "desc" },
+    _limit: limit,
+    category: true,
+  });
+  if (result.errors) console.error("[catalog] searchArticles errors:", result.errors);
+  const items = (result.data || []) as unknown as ArticleRecord[];
+  return { items, total: items.length };
+}
+
+export interface RadarQueryOptions {
+  type?: RadarType | "all";
+  limit?: number;
+}
+
+/**
+ * AI Radar feed — pinned entries first, then the newest publications.
+ * Everything shown here is created and curated from the admin panel.
+ */
+export async function getRadarItems(options: RadarQueryOptions = {}): Promise<RadarRecord[]> {
+  const { type, limit = 40 } = options;
+  const filter: Record<string, any> = { active: "yes" };
+  if (type && type !== "all") filter.radar_type = type;
+
+  const result = await totalumSdk.crud.query("ai_radar", {
+    _filter: filter,
+    _sort: { published_at: "desc" },
+    _limit: limit,
+    service: true,
+    category: true,
+  });
+  if (result.errors) console.error("[catalog] getRadarItems errors:", result.errors);
+  const items = (result.data || []) as unknown as RadarRecord[];
+
+  // Pinned entries always lead the feed, the rest keeps the newest-first order.
+  return items.sort((a, b) => {
+    const pinned = Number(b.pinned === "yes") - Number(a.pinned === "yes");
+    if (pinned !== 0) return pinned;
+    return String(b.published_at || b.createdAt || "").localeCompare(String(a.published_at || a.createdAt || ""));
+  });
+}
+
 export async function getArticleBySlug(slug: string): Promise<ArticleRecord | null> {
   const result = await totalumSdk.crud.query("articles", {
     _filter: { slug },
@@ -304,7 +379,8 @@ export async function getBanners(position?: BannerRecord["position"]): Promise<B
   if (position) filter.position = position;
   const result = await totalumSdk.crud.query("banners", {
     _filter: filter,
-    _limit: 10,
+    _sort: { order_position: "asc" },
+    _limit: 20,
   });
   if (result.errors) console.error("[catalog] getBanners errors:", result.errors);
   return (result.data || []) as unknown as BannerRecord[];

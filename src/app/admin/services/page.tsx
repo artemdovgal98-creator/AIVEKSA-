@@ -3,14 +3,22 @@
 import { useLang } from "@/lib/i18n/context";
 import { api } from "@/lib/api";
 import { AdminCrud, type AdminCrudProps, type AdminField } from "@/components/admin/AdminCrud";
-import { categoryName } from "@/lib/localize";
+import { categoryName, serviceLogo } from "@/lib/localize";
 import { toast } from "sonner";
 import { Link2, Link2Off, Power } from "lucide-react";
-import type { CategoryRecord, ServiceRecord } from "@/lib/types";
+import { MAX_SERVICE_LOGOS, type CategoryRecord, type ServiceRecord } from "@/lib/types";
 
 // Typed alias: JSX generic arguments are not supported by the build pipeline.
 const ServiceCrud = AdminCrud as (props: AdminCrudProps<ServiceRecord>) => React.JSX.Element;
 
+/**
+ * The single place where an AI service is managed.
+ *
+ * The former standalone "Partner Offers" section is gone: the affiliate link,
+ * the official URL and the status switches all live on this card now. The form
+ * is intentionally short — the API writes only the submitted fields, so the
+ * long-form catalog copy (features, pros/cons, tags…) keeps its stored value.
+ */
 export default function AdminServicesPage() {
   const { lang, t } = useLang();
   const f = t.admin.form;
@@ -19,12 +27,18 @@ export default function AdminServicesPage() {
     { key: "name", label: f.name, type: "text" },
     { key: "slug", label: f.slug, type: "text", hint: "/ai/slug" },
     { key: "category", label: f.category, type: "select", optionsSource: "categories" },
-    { key: "logo_url", label: f.logo, type: "url" },
+    { key: "affiliate_network", label: t.admin.affiliate.network, type: "text" },
+
+    { key: "title_ru", label: `${f.title} RU`, type: "text" },
+    { key: "title_uk", label: `${f.title} UK`, type: "text" },
+    { key: "title_en", label: `${f.title} EN`, type: "text" },
+
+    { key: "description_ru", label: `${f.description} RU`, type: "textarea", rows: 3 },
+    { key: "description_uk", label: `${f.description} UK`, type: "textarea", rows: 3 },
+    { key: "description_en", label: `${f.description} EN`, type: "textarea", rows: 3 },
+
     { key: "official_url", label: f.officialUrl, type: "url" },
     { key: "affiliate_url", label: f.affiliateUrl, type: "url", hint: "https://…" },
-    { key: "affiliate_program_url", label: t.admin.affiliate.colProgram, type: "url" },
-    { key: "affiliate_network", label: t.admin.affiliate.network, type: "text" },
-    { key: "commission", label: t.admin.affiliate.colCommission, type: "text" },
     {
       key: "affiliate_status",
       label: t.admin.affiliate.colStatus,
@@ -37,36 +51,17 @@ export default function AdminServicesPage() {
         { value: "not_available", label: t.admin.affiliate.status.not_available },
       ],
     },
-    { key: "affiliate_notes", label: t.admin.affiliate.notes, type: "textarea", rows: 2 },
     { key: "is_affiliate", label: f.isAffiliate, type: "toggle" },
-    { key: "free_plan", label: f.freePlan, type: "toggle" },
+
     {
-      key: "pricing_type",
-      label: f.pricingType,
-      type: "select",
-      options: [
-        { value: "free", label: t.card.free },
-        { value: "freemium", label: t.card.freemium },
-        { value: "paid", label: t.card.paid },
-      ],
+      key: "logo_files",
+      label: t.uploads.logos,
+      type: "files",
+      max: MAX_SERVICE_LOGOS,
+      hint: t.uploads.logosHint,
+      full: true,
     },
-    { key: "pricing", label: f.pricing, type: "text" },
-    { key: "rating", label: f.rating, type: "number", step: "0.1" },
-    { key: "popularity", label: f.popularity, type: "number" },
-    { key: "tags", label: f.tags, type: "text", full: true },
-    { key: "keywords", label: f.keywords, type: "text", full: true },
-    { key: "description_ru", label: `${f.description} RU`, type: "textarea", rows: 3 },
-    { key: "description_uk", label: `${f.description} UK`, type: "textarea", rows: 3 },
-    { key: "description_en", label: `${f.description} EN`, type: "textarea", rows: 3 },
-    { key: "features_ru", label: `${f.features} RU`, type: "textarea", rows: 4 },
-    { key: "features_uk", label: `${f.features} UK`, type: "textarea", rows: 4 },
-    { key: "features_en", label: `${f.features} EN`, type: "textarea", rows: 4 },
-    { key: "pros_ru", label: `${f.pros} RU`, type: "textarea", rows: 3 },
-    { key: "pros_uk", label: `${f.pros} UK`, type: "textarea", rows: 3 },
-    { key: "pros_en", label: `${f.pros} EN`, type: "textarea", rows: 3 },
-    { key: "cons_ru", label: `${f.cons} RU`, type: "textarea", rows: 3 },
-    { key: "cons_uk", label: `${f.cons} UK`, type: "textarea", rows: 3 },
-    { key: "cons_en", label: `${f.cons} EN`, type: "textarea", rows: 3 },
+
     { key: "popular", label: f.popular, type: "toggle" },
     { key: "featured", label: f.featured, type: "toggle" },
     { key: "active", label: f.active, type: "toggle" },
@@ -76,49 +71,27 @@ export default function AdminServicesPage() {
     name: "",
     slug: "",
     category: "",
-    logo_url: "",
-    official_url: "",
-    affiliate_url: "",
-    affiliate_program_url: "",
     affiliate_network: "",
-    commission: "",
-    affiliate_status: "not_connected",
-    affiliate_notes: "",
-    is_affiliate: "no",
-    free_plan: "no",
-    pricing_type: "freemium",
-    pricing: "",
-    rating: 0,
-    popularity: 0,
-    tags: "",
-    keywords: "",
+    title_ru: "",
+    title_uk: "",
+    title_en: "",
     description_ru: "",
     description_uk: "",
     description_en: "",
-    features_ru: "",
-    features_uk: "",
-    features_en: "",
-    pros_ru: "",
-    pros_uk: "",
-    pros_en: "",
-    cons_ru: "",
-    cons_uk: "",
-    cons_en: "",
+    official_url: "",
+    affiliate_url: "",
+    affiliate_status: "not_connected",
+    is_affiliate: "no",
+    logo_files: [],
     popular: "no",
     featured: "no",
     active: "yes",
   };
 
-  /** Quick activate / deactivate without opening the full form. */
+  /** Quick activate / deactivate — sends only the switch, nothing else changes. */
   const toggleActive = async (service: ServiceRecord, reload: () => void) => {
     const next = service.active === "yes" ? "no" : "yes";
-    const category = service.category;
-    const payload = {
-      ...service,
-      category: category && typeof category === "object" ? category._id : category,
-      active: next,
-    };
-    const response = await api.put(`/api/admin/services/${service._id}`, payload);
+    const response = await api.put(`/api/admin/services/${service._id}`, { active: next });
     if (!response.ok) {
       console.error("[admin] toggle active failed:", response.error);
       toast.error(String(response.error || t.common.error));
@@ -153,11 +126,12 @@ export default function AdminServicesPage() {
       renderRow={(service) => {
         const category = (typeof service.category === "object" ? service.category : null) as CategoryRecord | null;
         const hasAffiliate = service.is_affiliate === "yes" && Boolean(service.affiliate_url);
+        const logo = serviceLogo(service);
         return (
           <div className="flex min-w-0 items-center gap-3">
-            {service.logo_url ? (
+            {logo ? (
               <img
-                src={service.logo_url}
+                src={logo}
                 alt=""
                 className="h-10 w-10 shrink-0 rounded-xl border border-white/10 bg-white/5 object-contain p-1.5"
               />
@@ -168,7 +142,7 @@ export default function AdminServicesPage() {
             )}
             <div className="min-w-0">
               <p className="flex items-center gap-2 truncate text-sm font-semibold text-white">
-                {service.name}
+                <span className="truncate">{service.name}</span>
                 {service.featured === "yes" && <span className="text-xs">⭐</span>}
                 {hasAffiliate ? (
                   <Link2 className="h-3.5 w-3.5 shrink-0 text-emerald-400" />

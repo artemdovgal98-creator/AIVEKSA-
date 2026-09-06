@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     if (!admin) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
     const body = await request.json().catch(() => ({}));
-    const payload = buildServicePayload(body);
+    const payload = buildServicePayload(body, "create");
     if (!payload.slug) {
       return NextResponse.json({ ok: false, error: "Slug is required" }, { status: 400 });
     }

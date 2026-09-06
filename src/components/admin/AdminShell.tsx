@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLang } from "@/lib/i18n/context";
-import { BarChart3, FileText, Handshake, Image, LayoutGrid, MousePointerClick, Send, Sparkles, Tags, ArrowLeft } from "lucide-react";
+import { BarChart3, FileText, Handshake, Image, LayoutGrid, MousePointerClick, Radar, Send, Sparkles, ArrowLeft } from "lucide-react";
 
 const ITEMS = [
   { href: "/admin", key: "dashboard", icon: BarChart3 },
   { href: "/admin/services", key: "services", icon: Sparkles },
   { href: "/admin/affiliates", key: "affiliates", icon: Handshake },
-  { href: "/admin/offers", key: "offers", icon: Tags },
+  { href: "/admin/radar", key: "radar", icon: Radar },
   { href: "/admin/telegram", key: "telegram", icon: Send },
   { href: "/admin/categories", key: "categories", icon: LayoutGrid },
   { href: "/admin/articles", key: "articles", icon: FileText },
@@ -37,7 +37,7 @@ export function AdminShell({ children, adminName }: { children: React.ReactNode;
         </Link>
       </header>
 
-      <nav className="no-scrollbar mb-5 flex gap-2 overflow-x-auto">
+      <nav className="rail no-scrollbar mb-5 flex">
         {ITEMS.map((item) => {
           const Icon = item.icon;
           const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);

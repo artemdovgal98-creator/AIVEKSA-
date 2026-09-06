@@ -9,6 +9,8 @@ import {
   isAffiliatePartner,
   pickLocalized,
   resolveTargetUrl,
+  serviceLogo,
+  serviceTitle,
   toList,
   toTags,
 } from "@/lib/localize";
@@ -31,20 +33,22 @@ export async function generateMetadata({
   if (!service) return { title: "404" };
 
   const description = pickLocalized(service, "description", lang);
-  const title = `${service.name} — ${categoryName(expandedCategory(service), lang)}`;
+  const heading = serviceTitle(service, lang);
+  const title = `${heading} — ${categoryName(expandedCategory(service), lang)}`;
+  const cover = serviceLogo(service);
 
   return {
     title,
     description,
     alternates: { canonical: `/ai/${service.slug}` },
     openGraph: {
-      title: `${service.name} · AIVEXA`,
+      title: `${heading} · AIVEXA`,
       description,
       url: `/ai/${service.slug}`,
-      images: service.logo_url ? [{ url: service.logo_url }] : undefined,
+      images: cover ? [{ url: cover }] : undefined,
       type: "article",
     },
-    twitter: { card: "summary", title: `${service.name} · AIVEXA`, description },
+    twitter: { card: "summary", title: `${heading} · AIVEXA`, description },
   };
 }
 
@@ -76,7 +80,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
     applicationCategory: categoryName(category, lang),
     operatingSystem: "Web",
     url: `/ai/${service.slug}`,
-    image: service.logo_url || undefined,
+    image: serviceLogo(service) || undefined,
     offers: {
       "@type": "Offer",
       price: service.pricing_type === "free" ? "0" : undefined,
@@ -139,10 +143,10 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
               )}
             </div>
 
-            <h1 className="font-display mt-3 text-2xl font-extrabold text-white sm:text-4xl">
-              {service.name}
+            <h1 className="font-display mt-3 break-anywhere text-2xl font-extrabold text-white sm:text-4xl">
+              {serviceTitle(service, lang)}
             </h1>
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-foreground/70 sm:text-base">
+            <p className="mt-2 max-w-2xl break-anywhere text-sm leading-relaxed text-foreground/70 sm:text-base">
               {description}
             </p>
 
@@ -164,7 +168,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
           </div>
         </div>
 
-        <div className="relative mt-6 flex items-center gap-3">
+        <div className="relative mt-6 flex flex-wrap items-center gap-3">
           <a
             href={`/go/${service.slug}`}
             target="_blank"

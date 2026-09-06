@@ -2,7 +2,7 @@
 
 import { useLang } from "@/lib/i18n/context";
 import { AdminCrud, type AdminCrudProps, type AdminField } from "@/components/admin/AdminCrud";
-import type { ArticleRecord } from "@/lib/types";
+import { fileUrl, type ArticleRecord } from "@/lib/types";
 
 // Typed alias: JSX generic arguments are not supported by the build pipeline.
 const ArticleCrud = AdminCrud as (props: AdminCrudProps<ArticleRecord>) => React.JSX.Element;
@@ -21,6 +21,7 @@ export default function AdminArticlesPage() {
     ] },
     { key: "category", label: f.category, type: "select", optionsSource: "categories" },
     { key: "image_url", label: f.image, type: "url", full: true },
+    { key: "cover", label: t.uploads.cover, type: "files", max: 1, hint: t.uploads.coverHint, full: true },
     { key: "description", label: f.description, type: "textarea", rows: 2 },
     { key: "content", label: f.content, type: "textarea", rows: 14 },
     { key: "published", label: f.published, type: "toggle" },
@@ -30,14 +31,26 @@ export default function AdminArticlesPage() {
     <ArticleCrud
       endpoint="/api/admin/articles"
       fields={fields}
-      empty={{ title: "", slug: "", language: "ru", category: "", image_url: "", description: "", content: "", published: "no" }}
+      empty={{
+        title: "",
+        slug: "",
+        language: "ru",
+        category: "",
+        image_url: "",
+        cover: [],
+        description: "",
+        content: "",
+        published: "no",
+      }}
       searchable
       newLabel={f.newArticle}
       editLabel={f.editArticle}
-      renderRow={(article) => (
+      renderRow={(article) => {
+        const cover = fileUrl(article.cover) || article.image_url || "";
+        return (
         <div className="flex min-w-0 items-center gap-3">
-          {article.image_url ? (
-            <img src={article.image_url} alt="" className="h-10 w-14 shrink-0 rounded-lg object-cover" />
+          {cover ? (
+            <img src={cover} alt="" className="h-10 w-14 shrink-0 rounded-lg object-cover" />
           ) : (
             <span className="h-10 w-14 shrink-0 rounded-lg bg-white/8" />
           )}
@@ -49,7 +62,8 @@ export default function AdminArticlesPage() {
             </p>
           </div>
         </div>
-      )}
+        );
+      }}
     />
   );
 }

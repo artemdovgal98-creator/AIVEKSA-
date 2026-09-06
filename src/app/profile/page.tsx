@@ -8,10 +8,11 @@ import { useLang } from "@/lib/i18n/context";
 import { LANGS } from "@/lib/i18n/dictionaries";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { ProfileEditor } from "@/components/site/ProfileEditor";
 import { LogOut, Mail, Shield, Star, Loader2 } from "lucide-react";
 import type { Lang } from "@/lib/types";
 
-interface MeResponse {
+interface MeResponse extends Record<string, any> {
   id: string;
   name: string;
   email: string;
@@ -96,6 +97,8 @@ export default function ProfilePage() {
           </div>
         </div>
       </section>
+
+      {me && <ProfileEditor initial={me} />}
 
       <section className="glass animate-fade-up mt-4 rounded-3xl p-6">
         <h2 className="font-display mb-4 text-base font-bold text-white">{t.auth.language}</h2>

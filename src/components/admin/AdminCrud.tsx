@@ -6,22 +6,44 @@ import { api } from "@/lib/api";
 import { categoryName } from "@/lib/localize";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { FileField } from "./FileField";
 import { Loader2, Pencil, Plus, Search, Trash2, X } from "lucide-react";
-import type { CategoryRecord } from "@/lib/types";
+import type { CategoryRecord, ServiceRecord, TotalumFile } from "@/lib/types";
 
-export type FieldType = "text" | "textarea" | "number" | "select" | "toggle" | "url";
+export type FieldType =
+  | "text"
+  | "textarea"
+  | "number"
+  | "select"
+  | "toggle"
+  | "url"
+  | "date"
+  | "files";
 
 export interface AdminField {
   key: string;
   label: string;
   type: FieldType;
   options?: { value: string; label: string }[];
-  optionsSource?: "categories";
+  optionsSource?: "categories" | "services";
   placeholder?: string;
   full?: boolean;
   rows?: number;
   step?: string;
   hint?: string;
+  /** `files` only — how many uploads the field accepts. */
+  max?: number;
+  /** `files` only — upload endpoint, defaults to the admin one. */
+  uploadEndpoint?: string;
+}
+
+/** Normalises a Totalum file field (single or multiple) into an editable list. */
+function toFileList(value: any): TotalumFile[] {
+  if (!value) return [];
+  const list = Array.isArray(value) ? value : [value];
+  return list
+    .map((entry: any) => (typeof entry === "string" ? { name: entry } : entry))
+    .filter((entry: any) => entry && typeof entry.name === "string");
 }
 
 export interface AdminCrudProps<T> {
@@ -51,10 +73,12 @@ export function AdminCrud<T extends { _id: string }>({
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState("");
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
+  const [services, setServices] = useState<ServiceRecord[]>([]);
   const [editing, setEditing] = useState<Record<string, any> | null>(null);
   const [saving, setSaving] = useState(false);
 
   const needsCategories = fields.some((field) => field.optionsSource === "categories");
+  const needsServices = fields.some((field) => field.optionsSource === "services");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -86,16 +110,35 @@ export function AdminCrud<T extends { _id: string }>({
     });
   }, [needsCategories]);
 
+  useEffect(() => {
+    if (!needsServices) return;
+    api.get<ServiceRecord[]>("/api/admin/services").then((response) => {
+      if (!response.ok) {
+        console.error("[admin] failed to load services:", response.error);
+        return;
+      }
+      setServices(response.data || []);
+    });
+  }, [needsServices]);
+
   const openNew = () => setEditing({ ...empty });
 
   const openEdit = (record: any) => {
     const draft: Record<string, any> = { _id: record._id };
     for (const field of fields) {
       const value = record[field.key];
+      if (field.type === "files") {
+        draft[field.key] = toFileList(value);
+        continue;
+      }
+      if (field.type === "date") {
+        // <input type="date"> only accepts YYYY-MM-DD, the DB stores a full ISO date.
+        draft[field.key] = typeof value === "string" ? value.slice(0, 10) : "";
+        continue;
+      }
+      const isRelation = field.optionsSource === "categories" || field.optionsSource === "services";
       draft[field.key] =
-        field.optionsSource === "categories" && value && typeof value === "object"
-          ? value._id
-          : value ?? empty[field.key] ?? "";
+        isRelation && value && typeof value === "object" ? value._id : value ?? empty[field.key] ?? "";
     }
     setEditing(draft);
   };
@@ -134,10 +177,18 @@ export function AdminCrud<T extends { _id: string }>({
     load();
   };
 
-  const optionsFor = (field: AdminField) =>
-    field.optionsSource === "categories"
-      ? categories.map((category) => ({ value: category._id, label: `${category.icon || ""} ${categoryName(category, lang)}`.trim() }))
-      : field.options || [];
+  const optionsFor = (field: AdminField) => {
+    if (field.optionsSource === "categories") {
+      return categories.map((category) => ({
+        value: category._id,
+        label: `${category.icon || ""} ${categoryName(category, lang)}`.trim(),
+      }));
+    }
+    if (field.optionsSource === "services") {
+      return services.map((service) => ({ value: service._id, label: service.name }));
+    }
+    return field.options || [];
+  };
 
   return (
     <div className="space-y-4">
@@ -206,8 +257,8 @@ export function AdminCrud<T extends { _id: string }>({
 
       {/* Editor */}
       {editing && (
-        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 p-0 backdrop-blur-sm sm:items-center sm:p-6">
-          <div className="glass-strong max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-t-3xl p-5 sm:rounded-3xl sm:p-7">
+        <div className="scrim fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6">
+          <div className="panel-solid max-h-[92vh] w-full max-w-3xl overflow-y-auto overflow-x-hidden rounded-t-3xl p-5 sm:rounded-3xl sm:p-7">
             <div className="mb-5 flex items-center justify-between gap-3">
               <h2 className="font-display text-lg font-bold text-white">
                 {editing._id ? editLabel : newLabel}
@@ -231,6 +282,21 @@ export function AdminCrud<T extends { _id: string }>({
               {fields.map((field) => {
                 const value = editing[field.key];
                 const setValue = (next: any) => setEditing({ ...editing, [field.key]: next });
+
+                if (field.type === "files") {
+                  return (
+                    <div key={field.key} className={field.full ? "sm:col-span-2" : ""}>
+                      <FileField
+                        label={field.label}
+                        hint={field.hint}
+                        max={field.max || 1}
+                        endpoint={field.uploadEndpoint || "/api/admin/upload"}
+                        value={toFileList(value)}
+                        onChange={(next) => setValue(next)}
+                      />
+                    </div>
+                  );
+                }
 
                 if (field.type === "toggle") {
                   const on = value === "yes" || value === true;
@@ -289,7 +355,15 @@ export function AdminCrud<T extends { _id: string }>({
                       </select>
                     ) : (
                       <input
-                        type={field.type === "number" ? "number" : field.type === "url" ? "url" : "text"}
+                        type={
+                          field.type === "number"
+                            ? "number"
+                            : field.type === "url"
+                              ? "url"
+                              : field.type === "date"
+                                ? "date"
+                                : "text"
+                        }
                         step={field.step}
                         value={value ?? ""}
                         onChange={(event) =>
@@ -305,7 +379,7 @@ export function AdminCrud<T extends { _id: string }>({
                 );
               })}
 
-              <div className="sticky bottom-0 -mx-5 mt-2 flex gap-3 bg-gradient-to-t from-[#12121f] to-transparent px-5 py-4 sm:col-span-2 sm:mx-0 sm:px-0">
+              <div className="panel-solid sticky bottom-0 -mx-5 mt-2 flex flex-wrap gap-3 rounded-t-2xl border-x-0 border-b-0 px-5 py-4 sm:col-span-2 sm:mx-0 sm:rounded-none sm:border-0 sm:bg-transparent sm:px-0 sm:backdrop-blur-none">
                 <Button
                   type="submit"
                   disabled={saving}

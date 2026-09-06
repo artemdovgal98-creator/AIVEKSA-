@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { getServerDict } from "@/lib/i18n/server";
-import { ToolsView } from "@/components/site/ToolsView";
+import { ToolsTabs } from "@/components/site/ToolsTabs";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +22,10 @@ export default async function ToolsPage() {
       <header className="mb-7">
         <h1 className="font-display text-2xl font-extrabold text-white sm:text-4xl">{t.tools.title}</h1>
         <p className="mt-2 text-sm text-foreground/60 sm:text-base">{t.tools.subtitle}</p>
+        <p className="mt-1 text-sm text-foreground/45">{t.toolbox.subtitle}</p>
       </header>
 
-      <ToolsView />
+      <ToolsTabs />
     </div>
   );
 }

@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { getServerDict } from "@/lib/i18n/server";
-import { getCategories, getServices } from "@/lib/catalog";
+import { getCategories, getRadarItems, getServices } from "@/lib/catalog";
 import { categoryName } from "@/lib/localize";
 import { ServiceCard } from "@/components/site/ServiceCard";
 import { SearchBox } from "@/components/site/SearchBox";
 import { HeroExamples } from "@/components/site/HeroExamples";
 import { SectionHeading } from "@/components/site/SectionHeading";
 import { AdBanner } from "@/components/site/AdBanner";
+import { OwnerContacts } from "@/components/site/OwnerContacts";
+import { RadarStrip } from "@/components/site/RadarFeed";
+import { TelegramButton } from "@/components/site/TelegramButton";
 import { Wand2, Wrench, Sparkles, Send, ArrowRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +28,10 @@ export default async function Home() {
     getServices({ filter: "affiliate", sort: "rating", limit: 6 }),
     getServices({ limit: 1 }),
   ]);
+
+  // 📡 AI Radar — the newest curated entries, straight from the admin panel.
+  const radar = await getRadarItems({ limit: 6 });
+  console.log("[home] radar entries:", radar.length);
 
   const freeCount = await getServices({ filter: "has_free", limit: 1 });
 
@@ -124,6 +131,9 @@ export default async function Home() {
           </div>
         </section>
 
+        {/* ---------------- OWNER CONTACTS ---------------- */}
+        <OwnerContacts />
+
         <AdBanner position="home_top" />
 
         {/* ---------------- FEATURED ---------------- */}
@@ -159,6 +169,20 @@ export default async function Home() {
                 <ServiceCard key={service._id} service={service} delay={index * 40} />
               ))}
             </div>
+          </section>
+        )}
+
+        {/* ---------------- AI RADAR ---------------- */}
+        {radar.length > 0 && (
+          <section>
+            <SectionHeading
+              title={t.radar.homeTitle}
+              subtitle={t.radar.homeSub}
+              href="/radar"
+              linkLabel={t.radar.viewAll}
+              accent="violet"
+            />
+            <RadarStrip items={radar} />
           </section>
         )}
 
@@ -206,6 +230,11 @@ export default async function Home() {
             </span>
           </Link>
         </section>
+
+        {/* Direct entry point to the Telegram bot — hidden until one is bound. */}
+        <div className="flex justify-center">
+          <TelegramButton variant="full" label={t.referralPage.openBot} className="w-full sm:w-auto sm:px-8" />
+        </div>
 
         {/* ---------------- POPULAR ---------------- */}
         {popular.items.length > 0 && (

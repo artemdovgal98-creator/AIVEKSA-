@@ -2,20 +2,22 @@
 
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
-import { categoryName, expandedCategory, isAffiliatePartner, pickLocalized, toTags } from "@/lib/localize";
+import { categoryName, expandedCategory, isAffiliatePartner, pickLocalized, serviceLogo, serviceTitle, toTags } from "@/lib/localize";
 import { FavoriteButton } from "./FavoriteButton";
 import { Star, ExternalLink, Flame, BadgeCheck } from "lucide-react";
 import type { ServiceRecord } from "@/lib/types";
 
 export function ServiceLogo({ service, className = "" }: { service: ServiceRecord; className?: string }) {
   const initial = (service.name || "?").charAt(0).toUpperCase();
+  // An uploaded logo always wins over the default brand icon.
+  const logo = serviceLogo(service);
   return (
     <span
       className={`relative flex shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/12 bg-white/8 ${className}`}
     >
-      {service.logo_url ? (
+      {logo ? (
         <img
-          src={service.logo_url}
+          src={logo}
           alt={service.name}
           loading="lazy"
           className="h-2/3 w-2/3 object-contain"
@@ -25,7 +27,7 @@ export function ServiceLogo({ service, className = "" }: { service: ServiceRecor
         />
       ) : null}
       <span className="pointer-events-none absolute font-display text-sm font-bold text-white/70 mix-blend-luminosity">
-        {service.logo_url ? "" : initial}
+        {logo ? "" : initial}
       </span>
     </span>
   );
@@ -34,6 +36,7 @@ export function ServiceLogo({ service, className = "" }: { service: ServiceRecor
 export function ServiceCard({ service, score, delay = 0 }: { service: ServiceRecord; score?: number; delay?: number }) {
   const { lang, t } = useLang();
   const category = expandedCategory(service);
+  const heading = serviceTitle(service, lang);
   const description = pickLocalized(service, "description", lang);
   const tags = toTags(service.tags).slice(0, 3);
   // Only shown once the owner really connected an affiliate link — internal
@@ -42,15 +45,15 @@ export function ServiceCard({ service, score, delay = 0 }: { service: ServiceRec
 
   return (
     <article
-      className="glass glass-hover animate-fade-up group relative flex h-full flex-col rounded-2xl p-4 sm:p-5"
+      className="glass glass-hover animate-fade-up group relative flex h-full min-w-0 flex-col overflow-hidden rounded-2xl p-4 sm:p-5"
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="flex items-start gap-3">
         <ServiceLogo service={service} className="h-12 w-12" />
 
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="font-display truncate text-[15px] font-bold text-white sm:text-base">{service.name}</h3>
+          <div className="flex min-w-0 items-center gap-2">
+            <h3 className="font-display min-w-0 truncate text-[15px] font-bold text-white sm:text-base">{heading}</h3>
             {service.popular === "yes" && (
               <Flame className="h-3.5 w-3.5 shrink-0 text-orange-400" aria-hidden />
             )}
@@ -87,7 +90,7 @@ export function ServiceCard({ service, score, delay = 0 }: { service: ServiceRec
         <FavoriteButton service={service} size="sm" />
       </div>
 
-      <p className="mt-3 line-clamp-3 text-[13px] leading-relaxed text-foreground/65">{description}</p>
+      <p className="mt-3 line-clamp-3 break-anywhere text-[13px] leading-relaxed text-foreground/65">{description}</p>
 
       <div className="mt-3 flex flex-wrap gap-1.5">
         {service.free_plan === "yes" ? (
@@ -105,16 +108,19 @@ export function ServiceCard({ service, score, delay = 0 }: { service: ServiceRec
           </span>
         )}
         {tags.map((tag) => (
-          <span key={tag} className="rounded-md bg-white/6 px-2 py-1 text-[11px] text-foreground/55">
+          <span
+            key={tag}
+            className="max-w-full truncate rounded-md bg-white/6 px-2 py-1 text-[11px] text-foreground/55"
+          >
             #{tag}
           </span>
         ))}
       </div>
 
-      <div className="mt-4 flex items-center gap-2 pt-1">
+      <div className="mt-4 flex min-w-0 flex-wrap items-center gap-2 pt-1">
         <Link
           href={`/ai/${service.slug}`}
-          className="flex-1 rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-center text-[13px] font-semibold text-foreground/85 transition-colors hover:bg-white/10 hover:text-white"
+          className="min-w-0 flex-1 basis-[45%] truncate rounded-xl border border-white/12 bg-white/5 px-3 py-2.5 text-center text-[13px] font-semibold text-foreground/85 transition-colors hover:bg-white/10 hover:text-white"
         >
           {t.card.details}
         </Link>
@@ -122,10 +128,10 @@ export function ServiceCard({ service, score, delay = 0 }: { service: ServiceRec
           href={`/go/${service.slug}`}
           target="_blank"
           rel="nofollow sponsored noopener noreferrer"
-          className="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#4c6fff] to-[#a855f7] px-3 py-2.5 text-[13px] font-semibold text-white transition-all hover:shadow-[0_10px_30px_-12px_rgba(124,145,255,1)]"
+          className="flex min-w-0 flex-1 basis-[45%] items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#4c6fff] to-[#a855f7] px-3 py-2.5 text-[13px] font-semibold text-white transition-all hover:shadow-[0_10px_30px_-12px_rgba(124,145,255,1)]"
         >
-          {t.card.try}
-          <ExternalLink className="h-3.5 w-3.5" />
+          <span className="truncate">{t.card.try}</span>
+          <ExternalLink className="h-3.5 w-3.5 shrink-0" />
         </a>
       </div>
     </article>

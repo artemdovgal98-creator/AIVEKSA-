@@ -24,7 +24,7 @@ export function BottomNav() {
     href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <nav className="glass-strong fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 md:hidden">
+    <nav className="bar-solid fixed bottom-0 left-0 right-0 z-50 border-t border-white/12 md:hidden">
       <ul className="mx-auto flex max-w-lg items-stretch justify-between px-1 pb-[env(safe-area-inset-bottom,0px)]">
         {items.map((item) => {
           const Icon = item.icon;

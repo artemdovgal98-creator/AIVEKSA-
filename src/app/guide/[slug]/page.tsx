@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { articleCover } from "@/lib/localize";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerDict } from "@/lib/i18n/server";
@@ -25,7 +26,7 @@ export async function generateMetadata({
       description: article.description,
       url: `/guide/${article.slug}`,
       type: "article",
-      images: article.image_url ? [{ url: article.image_url }] : undefined,
+      images: articleCover(article) ? [{ url: articleCover(article) }] : undefined,
       publishedTime: article.createdAt,
     },
     twitter: { card: "summary_large_image", title: article.title, description: article.description },
@@ -46,7 +47,7 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
     "@type": "Article",
     headline: article.title,
     description: article.description,
-    image: article.image_url || undefined,
+    image: articleCover(article) || undefined,
     datePublished: article.createdAt,
     dateModified: article.updatedAt || article.createdAt,
     inLanguage: article.language || "ru",
@@ -75,9 +76,9 @@ export default async function ArticlePage({ params }: { params: Promise<{ slug: 
         {formatDate(article.createdAt, lang)}
       </p>
 
-      {article.image_url && (
+      {articleCover(article) && (
         <img
-          src={article.image_url}
+          src={articleCover(article)}
           alt={article.title}
           className="mt-6 h-auto w-full rounded-3xl border border-white/8 object-cover"
         />

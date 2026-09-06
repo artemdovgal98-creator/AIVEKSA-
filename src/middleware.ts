@@ -40,6 +40,7 @@ const publicRoutes = [
   "/match",
   "/tools",
   "/guide",
+  "/radar",
   "/favorites",
   "/offers",
   "/go",

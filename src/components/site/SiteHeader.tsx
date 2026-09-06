@@ -7,9 +7,10 @@ import { useLang } from "@/lib/i18n/context";
 import { useSession, signOut } from "@/lib/auth-client";
 import { api } from "@/lib/api";
 import { LanguageSwitcher } from "./LanguageSwitcher";
+import { TelegramButton } from "./TelegramButton";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Sparkles, LayoutGrid, Wand2, Wrench, Star, BookOpen, Gift, Tags, User, Shield, LogOut } from "lucide-react";
+import { Menu, Sparkles, LayoutGrid, Wand2, Wrench, Star, BookOpen, Gift, Tags, Radar, User, Shield, LogOut } from "lucide-react";
 
 export function SiteHeader() {
   const { t } = useLang();
@@ -51,6 +52,7 @@ export function SiteHeader() {
 
   const links = [
     { href: "/catalog", label: t.nav.catalog, icon: LayoutGrid },
+    { href: "/radar", label: t.radar.nav, icon: Radar },
     { href: "/match", label: t.nav.match, icon: Wand2 },
     { href: "/tools", label: t.nav.tools, icon: Wrench },
     { href: "/guide", label: t.nav.guide, icon: BookOpen },
@@ -64,7 +66,7 @@ export function SiteHeader() {
   return (
     <header
       className={`sticky top-0 z-50 w-full transition-all duration-300 ${
-        scrolled ? "glass-strong border-b border-white/10" : "border-b border-transparent"
+        scrolled ? "bar-solid border-b border-white/12 shadow-[0_10px_30px_-20px_rgba(0,0,0,0.9)]" : "border-b border-transparent"
       }`}
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
@@ -94,6 +96,7 @@ export function SiteHeader() {
         </nav>
 
         <div className="ml-auto flex items-center gap-2">
+          <TelegramButton variant="compact" className="hidden sm:flex" />
           <LanguageSwitcher />
 
           {role === "admin" && (
@@ -158,6 +161,8 @@ export function SiteHeader() {
                     </Link>
                   );
                 })}
+
+                <TelegramButton variant="full" className="mt-2" />
 
                 <div className="my-2 h-px bg-white/10" />
 

@@ -13,8 +13,12 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const defaultWebhookUrl = () => {
-  const base = process.env.NEXT_PUBLIC_APP_URL || "";
+/**
+ * The webhook always lives on the PUBLIC site, never on the temporary preview
+ * link — so the address configured in the panel wins over the env fallback.
+ */
+const defaultWebhookUrl = (publicUrl = "") => {
+  const base = publicUrl || process.env.NEXT_PUBLIC_APP_URL || "";
   return base ? `${base.replace(/\/+$/, "")}/api/telegram/webhook` : "";
 };
 
@@ -52,7 +56,8 @@ export async function GET() {
           token: settings.token,
           username: settings.username,
           welcome: settings.welcome || DEFAULT_WELCOME,
-          webhookUrl: settings.webhookUrl || defaultWebhookUrl(),
+          webhookUrl: settings.webhookUrl || defaultWebhookUrl(settings.publicUrl),
+          publicUrl: settings.publicUrl,
           hasSecret: Boolean(settings.secret),
         },
         bot,
@@ -101,6 +106,9 @@ export async function PUT(request: Request) {
 
     if (typeof body.welcome === "string") await writeSetting(TELEGRAM_KEYS.welcome, body.welcome.trim());
     if (typeof body.webhookUrl === "string") await writeSetting(TELEGRAM_KEYS.webhookUrl, body.webhookUrl.trim());
+    if (typeof body.publicUrl === "string") {
+      await writeSetting(TELEGRAM_KEYS.publicUrl, body.publicUrl.trim().replace(/\/+$/, ""));
+    }
 
     const settings = await readSettings();
     if (!settings.secret) await writeSetting(TELEGRAM_KEYS.secret, generateWebhookSecret());
@@ -109,7 +117,7 @@ export async function PUT(request: Request) {
     const fresh = await readSettings();
     return NextResponse.json({
       ok: true,
-      data: { username: fresh.username, hasSecret: Boolean(fresh.secret) },
+      data: { username: fresh.username, hasSecret: Boolean(fresh.secret), publicUrl: fresh.publicUrl },
     });
   } catch (err: any) {
     console.error("[api/admin/telegram] PUT error:", err);
@@ -138,7 +146,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, data: { connected: false } });
     }
 
-    const url = (body.url || settings.webhookUrl || defaultWebhookUrl()).trim();
+    const url = (body.url || settings.webhookUrl || defaultWebhookUrl(settings.publicUrl)).trim();
     if (!/^https:\/\//i.test(url)) {
       return NextResponse.json(
         { ok: false, error: "Telegram принимает только HTTPS-адрес webhook" },

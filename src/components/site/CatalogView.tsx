@@ -146,7 +146,7 @@ export function CatalogView({
       <SearchBox size="md" initialValue={initialQuery} onSubmitOverride={(value) => setQuery(value)} />
 
       {/* Filter bar */}
-      <div className="flex items-center gap-2">
+      <div className="flex min-w-0 items-center gap-2">
         <button
           type="button"
           onClick={() => setShowFilters((value) => !value)}
@@ -161,7 +161,7 @@ export function CatalogView({
           )}
         </button>
 
-        <div className="no-scrollbar hidden flex-1 gap-2 overflow-x-auto md:flex">
+        <div className="rail no-scrollbar hidden min-w-0 flex-1 md:flex">
           {filters.map((entry) => (
             <button
               key={entry.id}
@@ -194,7 +194,7 @@ export function CatalogView({
 
       {/* Mobile filter drawer */}
       {showFilters && (
-        <div className="glass space-y-4 rounded-2xl p-4 md:hidden">
+        <div className="panel-solid space-y-4 rounded-2xl p-4 md:hidden">
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/50">
               {t.catalog.filters}
@@ -243,7 +243,7 @@ export function CatalogView({
 
       {/* Desktop category chips */}
       {!lockedCategory && (
-        <div className="no-scrollbar hidden gap-2 overflow-x-auto md:flex">
+        <div className="rail no-scrollbar hidden md:flex">
           <button
             type="button"
             onClick={() => setCategory("")}

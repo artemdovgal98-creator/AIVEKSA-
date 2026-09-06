@@ -21,6 +21,7 @@ export const TELEGRAM_KEYS = {
   secret: "telegram_webhook_secret",
   welcome: "telegram_welcome_message",
   webhookUrl: "telegram_webhook_url",
+  publicUrl: "site_public_url",
 } as const;
 
 const SETTING_DESCRIPTIONS: Record<string, string> = {
@@ -29,6 +30,7 @@ const SETTING_DESCRIPTIONS: Record<string, string> = {
   [TELEGRAM_KEYS.secret]: "Секрет заголовка webhook (генерируется автоматически)",
   [TELEGRAM_KEYS.welcome]: "Приветственное сообщение бота",
   [TELEGRAM_KEYS.webhookUrl]: "URL, на который Telegram шлёт обновления",
+  [TELEGRAM_KEYS.publicUrl]: "Публичный адрес сайта (используется ботом и webhook)",
 };
 
 export const DEFAULT_WELCOME =
@@ -60,6 +62,7 @@ export async function readSettings(): Promise<TelegramBotSettings> {
       secret: map.get(TELEGRAM_KEYS.secret) || "",
       welcome: map.get(TELEGRAM_KEYS.welcome) || DEFAULT_WELCOME,
       webhookUrl: map.get(TELEGRAM_KEYS.webhookUrl) || "",
+      publicUrl: map.get(TELEGRAM_KEYS.publicUrl) || "",
     };
   } catch (err) {
     console.error("[telegram] readSettings failed:", err);
