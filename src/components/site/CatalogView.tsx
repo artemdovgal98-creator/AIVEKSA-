@@ -182,10 +182,10 @@ export function CatalogView({
           value={sort}
           onChange={(event) => setSort(event.target.value)}
           aria-label={t.catalog.sort}
-          className="glass ml-auto shrink-0 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-foreground/85 focus:outline-none"
+          className="panel-solid ml-auto shrink-0 rounded-xl px-3 py-2.5 text-[13px] font-semibold text-white focus:outline-none"
         >
           {sorts.map((entry) => (
-            <option key={entry.id} value={entry.id} className="bg-[#161626] text-white">
+            <option key={entry.id} value={entry.id}>
               {entry.label}
             </option>
           ))}
@@ -194,7 +194,7 @@ export function CatalogView({
 
       {/* Mobile filter drawer */}
       {showFilters && (
-        <div className="panel-solid space-y-4 rounded-2xl p-4 md:hidden">
+        <div className="panel-solid relative z-30 space-y-4 rounded-2xl p-4 md:hidden">
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/50">
               {t.catalog.filters}
@@ -208,7 +208,7 @@ export function CatalogView({
                   className={`rounded-xl px-3 py-2 text-[13px] font-semibold transition-all ${
                     filter === entry.id
                       ? "bg-gradient-to-r from-[#4c6fff] to-[#a855f7] text-white"
-                      : "bg-white/6 text-foreground/70"
+                      : "bg-[color:var(--surface-panel-hover)] text-foreground/80"
                   }`}
                 >
                   {entry.label}
@@ -225,13 +225,13 @@ export function CatalogView({
               <select
                 value={category}
                 onChange={(event) => setCategory(event.target.value)}
-                className="w-full rounded-xl bg-white/6 px-3 py-2.5 text-sm text-white focus:outline-none"
+                className="w-full rounded-xl border border-white/15 bg-[color:var(--surface-panel-hover)] px-3 py-2.5 text-sm text-white focus:outline-none"
               >
-                <option value="" className="bg-[#161626]">
+                <option value="">
                   {t.catalog.allCategories}
                 </option>
                 {categories.map((entry) => (
-                  <option key={entry._id} value={entry.slug} className="bg-[#161626]">
+                  <option key={entry._id} value={entry.slug}>
                     {entry.icon} {categoryName(entry, lang)}
                   </option>
                 ))}

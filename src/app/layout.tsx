@@ -14,6 +14,7 @@ import { SiteFooter } from "@/components/site/SiteFooter";
 import { BottomNav } from "@/components/site/BottomNav";
 import { Toaster } from "@/components/ui/sonner";
 import { FavoritesProvider } from "@/components/site/FavoritesProvider";
+import { TelegramMiniApp } from "@/components/site/TelegramMiniApp";
 
 const unbounded = Unbounded({
   variable: "--font-unbounded",
@@ -83,6 +84,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <GlobalErrorCatcher />
         <ScriptExecutor />
         <DevToolsHandler />
+        {/* Boots the Telegram WebApp API when the site is opened as a Mini App. */}
+        <TelegramMiniApp />
         {/* Development-preview only banner. Kept outside the page wrapper so it never covers content. */}
         <TemporalLinkBanner />
         <LanguageProvider initialLang={lang}>

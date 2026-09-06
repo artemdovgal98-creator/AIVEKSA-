@@ -11,7 +11,10 @@ import {
   getActiveFolders,
   isFolderUnlocked,
   logDelivery,
+  maybeMigrateWebhook,
+  miniAppUrl,
   sendMessage,
+  siteBase,
   upsertTelegramUser,
 } from "@/lib/telegram";
 import type { PromptFolderRecord, TelegramBotSettings, TelegramUserRecord } from "@/lib/types";
@@ -29,7 +32,21 @@ import type { PromptFolderRecord, TelegramBotSettings, TelegramUserRecord } from
  * Admin → Telegram; the env fallback only helps during local development.
  */
 function siteUrl(settings: TelegramBotSettings): string {
-  return (settings.publicUrl || process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/+$/, "");
+  return siteBase(settings);
+}
+
+/**
+ * "Open AIVEXA" row of the main menu.
+ *
+ * A `web_app` button launches the Mini App inside Telegram; it only works over
+ * HTTPS, so an http:// development address degrades to a normal link instead of
+ * making Telegram answer BUTTON_TYPE_INVALID and dropping the whole message.
+ */
+function openSiteButton(settings: TelegramBotSettings): any[] | null {
+  const mini = miniAppUrl(settings);
+  if (mini) return [{ text: "🚀 Открыть AIVEXA", web_app: { url: mini } }];
+  const site = siteUrl(settings);
+  return site ? [{ text: "🌐 Открыть AIVEXA", url: site }] : null;
 }
 
 const TYPE_LABEL: Record<string, string> = {
@@ -65,8 +82,8 @@ function mainMenuKeyboard(settings: TelegramBotSettings) {
       { text: "📊 Мои приглашения", callback_data: "menu:stats" },
     ],
   ];
-  const site = siteUrl(settings);
-  if (site) rows.push([{ text: "🌐 Открыть AIVEXA", url: site }]);
+  const open = openSiteButton(settings);
+  if (open) rows.push(open);
   return { inline_keyboard: rows };
 }
 
@@ -327,7 +344,7 @@ async function handleStart(settings: TelegramBotSettings, chatId: string, from: 
   }
 
   const name = from.first_name ? `, ${escapeHtml(from.first_name)}` : "";
-  const greeting = `${settings.welcome.replace("👋 Привет!", `👋 Привет${name}!`)}`;
+  const greeting = escapeHtml(settings.welcome).replace("👋 Привет!", `👋 Привет${name}!`);
   await showMainMenu(settings, chatId, greeting);
 
   // Free materials are handed out immediately on the very first /start.
@@ -401,8 +418,25 @@ async function handleCallback(settings: TelegramBotSettings, callback: any) {
   }
 }
 
+/**
+ * Splits `/command@bot argument` into its parts.
+ *
+ * In groups Telegram appends the bot handle to every command, so a plain
+ * `text === "/stats"` comparison silently ignored them.
+ */
+function parseCommand(text: string): { command: string; payload: string } | null {
+  const match = /^\/([a-z0-9_]+)(?:@([a-zA-Z0-9_]+))?(?:\s+([\s\S]*))?$/i.exec(text.trim());
+  if (!match) return null;
+  return { command: match[1].toLowerCase(), payload: (match[3] || "").trim() };
+}
+
 /** Entry point used by the webhook route. */
 export async function handleUpdate(settings: TelegramBotSettings, update: any): Promise<void> {
+  // Opportunistic: move the webhook back to the published domain once it is up.
+  maybeMigrateWebhook(settings).catch((err) =>
+    console.error("[bot] webhook migration check failed:", err)
+  );
+
   if (update.callback_query) {
     await handleCallback(settings, update.callback_query);
     return;
@@ -412,40 +446,46 @@ export async function handleUpdate(settings: TelegramBotSettings, update: any): 
   if (!message?.from) return;
 
   const chatId = String(message.chat?.id || message.from.id);
-  const text = String(message.text || "").trim();
+  const text = String(message.text || message.caption || "").trim();
+  const parsed = parseCommand(text);
 
-  if (text.startsWith("/start")) {
-    const payload = text.slice("/start".length).trim();
-    await handleStart(settings, chatId, message.from, payload);
+  if (parsed?.command === "start") {
+    await handleStart(settings, chatId, message.from, parsed.payload);
     return;
   }
 
   const subscriber = await upsertTelegramUser(message.from);
 
-  if (text.startsWith("/link") || text.startsWith("/ref")) {
-    await showReferralLink(settings, chatId, subscriber);
-    return;
-  }
-  if (text.startsWith("/stats")) {
-    await showStats(settings, chatId, subscriber);
-    return;
-  }
-  if (text.startsWith("/folders") || text.startsWith("/materials")) {
-    await showFolders(settings, chatId, subscriber);
-    return;
-  }
-  if (text.startsWith("/help")) {
-    await sendMessage(
-      settings.token,
-      chatId,
-      "Команды бота:\n\n" +
-        "/start — главное меню\n" +
-        "/folders — мои материалы\n" +
-        "/link — реферальная ссылка\n" +
-        "/stats — статистика приглашений",
-      { reply_markup: mainMenuKeyboard(settings) }
-    );
-    return;
+  switch (parsed?.command) {
+    case "link":
+    case "ref":
+    case "invite":
+      await showReferralLink(settings, chatId, subscriber);
+      return;
+    case "stats":
+      await showStats(settings, chatId, subscriber);
+      return;
+    case "materials":
+    case "folders":
+      await showFolders(settings, chatId, subscriber);
+      return;
+    case "help":
+      await sendMessage(
+        settings.token,
+        chatId,
+        "<b>Команды бота</b>\n\n" +
+          "/start — главное меню\n" +
+          "/materials — мои материалы\n" +
+          "/link — реферальная ссылка\n" +
+          "/stats — статистика приглашений",
+        { reply_markup: mainMenuKeyboard(settings) }
+      );
+      return;
+    case "menu":
+      await showMainMenu(settings, chatId, "Главное меню 👇");
+      return;
+    default:
+      break;
   }
 
   await showMainMenu(settings, chatId, "Выбери, что нужно 👇");

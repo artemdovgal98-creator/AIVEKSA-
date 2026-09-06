@@ -3,11 +3,17 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { totalumSdk } from "@/lib/totalum";
 import { readCount } from "@/lib/aggregate";
 import {
+  BOT_COMMANDS,
   callTelegram,
+  configureBot,
   DEFAULT_WELCOME,
   generateWebhookSecret,
+  miniAppUrl,
+  normalizeBase,
   readSettings,
+  resolveWebhookBase,
   TELEGRAM_KEYS,
+  webhookEndpoint,
   writeSetting,
 } from "@/lib/telegram";
 
@@ -17,10 +23,8 @@ export const dynamic = "force-dynamic";
  * The webhook always lives on the PUBLIC site, never on the temporary preview
  * link — so the address configured in the panel wins over the env fallback.
  */
-const defaultWebhookUrl = (publicUrl = "") => {
-  const base = publicUrl || process.env.NEXT_PUBLIC_APP_URL || "";
-  return base ? `${base.replace(/\/+$/, "")}/api/telegram/webhook` : "";
-};
+const defaultWebhookUrl = (publicUrl = "") =>
+  webhookEndpoint(publicUrl || process.env.NEXT_PUBLIC_APP_URL || "");
 
 /** GET — bot settings, live Bot API status and subscriber counters. */
 export async function GET() {
@@ -59,6 +63,8 @@ export async function GET() {
           webhookUrl: settings.webhookUrl || defaultWebhookUrl(settings.publicUrl),
           publicUrl: settings.publicUrl,
           hasSecret: Boolean(settings.secret),
+          miniAppUrl: miniAppUrl(settings),
+          commands: BOT_COMMANDS,
         },
         bot,
         webhook,
@@ -146,34 +152,67 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, data: { connected: false } });
     }
 
-    const url = (body.url || settings.webhookUrl || defaultWebhookUrl(settings.publicUrl)).trim();
-    if (!/^https:\/\//i.test(url)) {
+    /*
+     * Candidate deployments, best first: an explicit address, the published
+     * domain, the env fallback, and finally the origin this request arrived on
+     * (the Totalum preview while the published build is still catching up).
+     * Only an address that actually answers the webhook probe gets registered —
+     * registering a 404 is exactly what made the bot look dead.
+     */
+    const explicit = normalizeBase(String(body.url || "").replace(/\/api\/telegram\/webhook\/?$/, ""));
+    const requestOrigin = (() => {
+      try {
+        return new URL(request.url).origin;
+      } catch {
+        return "";
+      }
+    })();
+    const candidates = [
+      explicit,
+      settings.publicUrl,
+      process.env.NEXT_PUBLIC_APP_URL || "",
+      requestOrigin,
+    ].filter((value) => /^https:\/\//i.test(normalizeBase(value)));
+
+    if (candidates.length === 0) {
       return NextResponse.json(
-        { ok: false, error: "Telegram принимает только HTTPS-адрес webhook" },
+        { ok: false, error: "Укажи публичный HTTPS-адрес сайта — Telegram принимает только HTTPS" },
         { status: 400 }
       );
     }
 
-    let secret = settings.secret;
-    if (!secret) {
-      secret = generateWebhookSecret();
-      await writeSetting(TELEGRAM_KEYS.secret, secret);
+    const { base, reachable } = await resolveWebhookBase(candidates);
+    if (!reachable) {
+      console.error("[api/admin/telegram] no candidate answered the webhook probe:", candidates);
+      return NextResponse.json(
+        {
+          ok: false,
+          error:
+            "Ни один адрес не отвечает на /api/telegram/webhook. " +
+            "Опубликуй сайт кнопкой Publish и повтори подключение.",
+        },
+        { status: 400 }
+      );
     }
 
-    const result = await callTelegram(settings.token, "setWebhook", {
-      url,
-      secret_token: secret,
-      allowed_updates: ["message", "edited_message", "callback_query"],
-      drop_pending_updates: true,
-    });
-    if (!result.ok) {
-      console.error("[api/admin/telegram] setWebhook failed:", result.description);
-      return NextResponse.json({ ok: false, error: result.description }, { status: 400 });
+    const configured = await configureBot(settings, base);
+    if (!configured.webhook.ok) {
+      console.error("[api/admin/telegram] setWebhook failed:", configured.webhook.description);
+      return NextResponse.json({ ok: false, error: configured.webhook.description }, { status: 400 });
     }
+    const url = configured.url;
 
-    await writeSetting(TELEGRAM_KEYS.webhookUrl, url);
     console.log("[api/admin/telegram] webhook connected to", url, "by", admin._id);
-    return NextResponse.json({ ok: true, data: { connected: true, url } });
+    return NextResponse.json({
+      ok: true,
+      data: {
+        connected: true,
+        url,
+        commands: configured.commands.ok,
+        menuButton: configured.menu.ok,
+        miniAppUrl: miniAppUrl(settings),
+      },
+    });
   } catch (err: any) {
     console.error("[api/admin/telegram] POST error:", err);
     return NextResponse.json({ ok: false, error: err?.message || "Unknown error" }, { status: 500 });

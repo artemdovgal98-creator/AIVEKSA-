@@ -179,9 +179,12 @@ button {
   --surface-glass: rgba(255, 255, 255, 0.045);
   --surface-glass-strong: rgba(255, 255, 255, 0.07);
   /* Opaque surfaces for anything that floats OVER content */
-  --surface-panel: rgba(14, 16, 30, 0.985);
-  --surface-bar: rgba(11, 12, 24, 0.96);
-  --surface-scrim: rgba(4, 5, 12, 0.82);
+  /* Overlay surfaces are FULLY opaque: nothing from the page may read through
+     a modal, a drawer or a dropdown list. */
+  --surface-panel: #101326;
+  --surface-panel-hover: #1b1f3a;
+  --surface-bar: rgba(11, 12, 24, 0.97);
+  --surface-scrim: rgba(3, 4, 10, 0.92);
 }
 
 @theme inline {
@@ -288,10 +291,14 @@ textarea {
  */
 .panel-solid {
   background: var(--surface-panel);
-  border: 1px solid rgba(255, 255, 255, 0.14);
-  backdrop-filter: blur(28px) saturate(140%);
-  -webkit-backdrop-filter: blur(28px) saturate(140%);
-  box-shadow: 0 30px 70px -24px rgba(0, 0, 0, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 30px 70px -24px rgba(0, 0, 0, 0.95);
+}
+
+/* Rows inside an overlay panel: opaque hover so the list never turns to mush. */
+.panel-item:hover,
+.panel-item:focus-visible {
+  background: var(--surface-panel-hover);
 }
 
 /*
@@ -311,6 +318,33 @@ textarea {
   -webkit-backdrop-filter: blur(6px);
 }
 
+/*
+ * Radix surfaces (shadcn dialog / alert-dialog / sheet / dropdown / select /
+ * popover). They float above real content, so their background is forced to the
+ * opaque panel colour and their backdrop to the dark scrim — the defaults are
+ * translucent and turn the text underneath into visual noise on mobile.
+ */
+[data-slot="dialog-overlay"],
+[data-slot="alert-dialog-overlay"],
+[data-slot="sheet-overlay"] {
+  background: var(--surface-scrim);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+[data-slot="dialog-content"],
+[data-slot="alert-dialog-content"],
+[data-slot="sheet-content"],
+[data-slot="dropdown-menu-content"],
+[data-slot="dropdown-menu-sub-content"],
+[data-slot="select-content"],
+[data-slot="popover-content"],
+[data-slot="command"] {
+  background: var(--surface-panel);
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: 0 30px 70px -24px rgba(0, 0, 0, 0.95);
+}
+
 /* Native dropdowns: force a solid list instead of the browser default. */
 select option,
 select optgroup {
@@ -327,6 +361,11 @@ select optgroup {
   border-color: rgba(124, 145, 255, 0.45);
   background: var(--surface-glass-strong);
   box-shadow: 0 18px 44px -22px rgba(76, 111, 255, 0.75);
+}
+
+/* Telegram Mini App: the client draws its own header strip over the page. */
+.tg-mini-app body {
+  padding-top: env(safe-area-inset-top);
 }
 
 /* ---------- Accents ---------- */

@@ -26,6 +26,10 @@ export function SearchBox({
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  // Suggestions only ever open after a real interaction. Arriving from a quick
+  // category chip pre-fills the field, and an auto-opened panel would sit on
+  // top of the results grid the visitor actually came to see.
+  const interacted = useRef(false);
 
   useEffect(() => {
     const handler = (event: MouseEvent) => {
@@ -54,7 +58,7 @@ export function SearchBox({
         setSuggestions(response.data || []);
       }
       setLoading(false);
-      setOpen(true);
+      if (interacted.current) setOpen(true);
     }, 250);
     return () => clearTimeout(timer);
   }, [value]);
@@ -87,8 +91,14 @@ export function SearchBox({
         <input
           type="search"
           value={value}
-          onChange={(event) => setValue(event.target.value)}
-          onFocus={() => value.trim().length >= 2 && setOpen(true)}
+          onChange={(event) => {
+            interacted.current = true;
+            setValue(event.target.value);
+          }}
+          onFocus={() => {
+            interacted.current = true;
+            if (value.trim().length >= 2 && suggestions.length > 0) setOpen(true);
+          }}
           placeholder={t.home.searchPlaceholder}
           aria-label={t.home.searchPlaceholder}
           className={`min-w-0 flex-1 bg-transparent text-white placeholder:text-foreground/40 focus:outline-none ${
@@ -107,7 +117,7 @@ export function SearchBox({
       </form>
 
       {open && (suggestions.length > 0 || loading) && (
-        <div className="glass-strong absolute left-0 right-0 top-full z-40 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl border border-white/12 p-1.5 shadow-2xl">
+        <div className="panel-solid absolute left-0 right-0 top-full z-50 mt-2 max-h-[60vh] overflow-y-auto rounded-2xl p-1.5">
           {loading && (
             <div className="flex items-center gap-2 px-3 py-3 text-sm text-foreground/60">
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -125,7 +135,7 @@ export function SearchBox({
                     setOpen(false);
                     router.push(`/ai/${service.slug}`);
                   }}
-                  className="flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors hover:bg-white/8"
+                  className="panel-item flex w-full items-center gap-3 rounded-xl px-2.5 py-2.5 text-left transition-colors"
                 >
                   <ServiceLogo service={service} className="h-9 w-9" />
                   <span className="min-w-0 flex-1">
@@ -142,7 +152,7 @@ export function SearchBox({
             <button
               type="button"
               onClick={submit}
-              className="flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[color:var(--neon-cyan)] transition-colors hover:bg-white/8"
+              className="panel-item flex w-full items-center gap-2 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-[color:var(--neon-cyan)] transition-colors"
             >
               <CornerDownLeft className="h-4 w-4" />
               {t.catalog.title}: “{value.trim()}”

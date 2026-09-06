@@ -129,14 +129,58 @@ export async function callTelegram<T = any>(
   }
 }
 
-export const sendMessage = (token: string, chatId: string | number, text: string, extra: Record<string, any> = {}) =>
-  callTelegram(token, "sendMessage", {
-    chat_id: chatId,
-    text,
-    parse_mode: "HTML",
-    disable_web_page_preview: true,
-    ...extra,
-  });
+/** Telegram rejects any message over 4096 characters — long texts are split. */
+const MAX_MESSAGE = 3900;
+
+function splitMessage(text: string): string[] {
+  if (text.length <= MAX_MESSAGE) return [text];
+  const chunks: string[] = [];
+  let rest = text;
+  while (rest.length > MAX_MESSAGE) {
+    const cut = rest.lastIndexOf("\n", MAX_MESSAGE);
+    const at = cut > MAX_MESSAGE * 0.5 ? cut : MAX_MESSAGE;
+    chunks.push(rest.slice(0, at));
+    rest = rest.slice(at);
+  }
+  if (rest.trim()) chunks.push(rest);
+  return chunks;
+}
+
+/**
+ * Sends a message, splitting anything too long and retrying once as plain text.
+ *
+ * A stray `<` in admin-authored content makes Telegram answer
+ * "can't parse entities" and the visitor sees nothing — the retry guarantees the
+ * message always arrives, even if the markup was broken.
+ */
+export async function sendMessage(
+  token: string,
+  chatId: string | number,
+  text: string,
+  extra: Record<string, any> = {}
+): Promise<TelegramApiResult> {
+  const chunks = splitMessage(text);
+  let last: TelegramApiResult = { ok: false, description: "empty message" };
+
+  for (let index = 0; index < chunks.length; index += 1) {
+    const payload: Record<string, any> = {
+      chat_id: chatId,
+      text: chunks[index],
+      parse_mode: "HTML",
+      disable_web_page_preview: true,
+      // The keyboard belongs on the last bubble only.
+      ...(index === chunks.length - 1 ? extra : {}),
+    };
+    last = await callTelegram(token, "sendMessage", payload);
+
+    if (!last.ok && /parse|entit/i.test(last.description || "")) {
+      console.error("[telegram] retrying message as plain text:", last.description);
+      last = await callTelegram(token, "sendMessage", { ...payload, parse_mode: undefined });
+    }
+    if (!last.ok) console.error(`[telegram] message not delivered to ${chatId}:`, last.description);
+  }
+  return last;
+}
 
 export const answerCallback = (token: string, callbackId: string, text = "") =>
   callTelegram(token, "answerCallbackQuery", { callback_query_id: callbackId, text });
@@ -160,6 +204,155 @@ export function generateWebhookSecret(): string {
   const bytes = new Uint8Array(24);
   crypto.getRandomValues(bytes);
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+/* -------------------------------------------------------------------------- */
+/*                          webhook / Mini App plumbing                        */
+/* -------------------------------------------------------------------------- */
+
+export const WEBHOOK_PATH = "/api/telegram/webhook";
+
+export const normalizeBase = (value: string) => (value || "").trim().replace(/\/+$/, "");
+
+export const webhookEndpoint = (base: string) => {
+  const clean = normalizeBase(base);
+  return clean ? `${clean}${WEBHOOK_PATH}` : "";
+};
+
+/**
+ * Checks that a deployment really answers on the webhook path.
+ *
+ * This is the whole reason the bot used to look "broken": Telegram happily
+ * accepts a `setWebhook` on any HTTPS address, then silently retries against a
+ * 404 forever. We only register an address that answered our health probe.
+ */
+export async function probeWebhookEndpoint(base: string): Promise<boolean> {
+  const url = webhookEndpoint(base);
+  if (!/^https:\/\//i.test(url)) return false;
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      cache: "no-store",
+      headers: { "user-agent": "aivexa-webhook-probe" },
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!response.ok) {
+      console.warn(`[telegram] probe ${url} → HTTP ${response.status}`);
+      return false;
+    }
+    const json = (await response.json().catch(() => null)) as { ok?: boolean } | null;
+    const alive = json?.ok === true;
+    if (!alive) console.warn(`[telegram] probe ${url} → unexpected body`);
+    return alive;
+  } catch (err: any) {
+    console.warn(`[telegram] probe ${url} failed:`, err?.message || err);
+    return false;
+  }
+}
+
+/**
+ * Picks the first candidate that is actually serving the webhook route.
+ * Candidates are given in priority order (public domain first, current origin
+ * last) and the preferred one is returned even if nothing answered, so the
+ * caller can still report a meaningful error.
+ */
+export async function resolveWebhookBase(candidates: string[]): Promise<{ base: string; reachable: boolean }> {
+  const unique = Array.from(new Set(candidates.map(normalizeBase).filter(Boolean)));
+  for (const base of unique) {
+    if (await probeWebhookEndpoint(base)) {
+      console.log("[telegram] webhook target resolved to", base);
+      return { base, reachable: true };
+    }
+  }
+  return { base: unique[0] || "", reachable: false };
+}
+
+/** Address the bot links to — the public site, never the temporary preview. */
+export function siteBase(settings: TelegramBotSettings): string {
+  return normalizeBase(settings.publicUrl || process.env.NEXT_PUBLIC_APP_URL || "");
+}
+
+/**
+ * Mini App URL. `?tgmini=1` lets the frontend know it is running inside the
+ * Telegram client so it can expand the viewport and hide the site chrome.
+ */
+export function miniAppUrl(settings: TelegramBotSettings, path = "/"): string {
+  const base = siteBase(settings);
+  if (!/^https:\/\//i.test(base)) return "";
+  const suffix = path.startsWith("/") ? path : `/${path}`;
+  return `${base}${suffix}${suffix.includes("?") ? "&" : "?"}tgmini=1`;
+}
+
+/** Bot commands shown in the Telegram "/" menu. */
+export const BOT_COMMANDS = [
+  { command: "start", description: "Открыть меню AIVEXA" },
+  { command: "materials", description: "Мои материалы" },
+  { command: "link", description: "Моя реферальная ссылка" },
+  { command: "stats", description: "Мои приглашения" },
+  { command: "help", description: "Помощь по боту" },
+];
+
+/**
+ * Registers webhook + commands + Mini App menu button in one go.
+ * Returns everything that happened so the admin panel can show it.
+ */
+export async function configureBot(
+  settings: TelegramBotSettings,
+  base: string
+): Promise<{ webhook: TelegramApiResult; commands: TelegramApiResult; menu: TelegramApiResult; url: string }> {
+  let secret = settings.secret;
+  if (!secret) {
+    secret = generateWebhookSecret();
+    await writeSetting(TELEGRAM_KEYS.secret, secret);
+  }
+
+  const url = webhookEndpoint(base);
+  const webhook = await callTelegram(settings.token, "setWebhook", {
+    url,
+    secret_token: secret,
+    allowed_updates: ["message", "edited_message", "callback_query"],
+    drop_pending_updates: true,
+    max_connections: 40,
+  });
+  if (webhook.ok) await writeSetting(TELEGRAM_KEYS.webhookUrl, url);
+
+  const commands = await callTelegram(settings.token, "setMyCommands", { commands: BOT_COMMANDS });
+
+  // The blue "menu" button next to the input opens the Mini App. Falls back to
+  // the plain command list when no public address is configured yet.
+  const mini = miniAppUrl(settings);
+  const menu = mini
+    ? await callTelegram(settings.token, "setChatMenuButton", {
+        menu_button: { type: "web_app", text: "AIVEXA", web_app: { url: mini } },
+      })
+    : await callTelegram(settings.token, "setChatMenuButton", { menu_button: { type: "commands" } });
+
+  console.log("[telegram] configureBot", {
+    url,
+    webhook: webhook.ok,
+    commands: commands.ok,
+    menu: menu.ok,
+    miniApp: mini || "(not set)",
+  });
+  return { webhook, commands, menu, url };
+}
+
+/**
+ * Self-healing: while the public site still serves an older build the webhook
+ * runs on whatever address answered last (typically the Totalum preview). As
+ * soon as the published domain starts answering, the bot moves itself back.
+ */
+let lastMigrationCheck = 0;
+
+export async function maybeMigrateWebhook(settings: TelegramBotSettings): Promise<void> {
+  const preferred = webhookEndpoint(settings.publicUrl);
+  if (!preferred || preferred === settings.webhookUrl) return;
+  if (Date.now() - lastMigrationCheck < 10 * 60 * 1000) return;
+  lastMigrationCheck = Date.now();
+
+  if (!(await probeWebhookEndpoint(settings.publicUrl))) return;
+  console.log("[telegram] public domain is live — moving the webhook to", preferred);
+  await configureBot(settings, settings.publicUrl);
 }
 
 export function botLink(username: string, code?: string): string {
