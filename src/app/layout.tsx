@@ -42,7 +42,11 @@ export async function generateMetadata(): Promise<Metadata> {
     },
     description: t.seo.homeDesc,
     applicationName: "AIVEXA",
-    keywords: [
+        other: {
+    "mitgo-verification": "0bedc2a5-ae1d-46f2-a0c4-868698b47790",
+  },
+  keywords: [
+    
       "AI", "нейросети", "AI сервисы", "каталог AI", "искусственный интеллект",
       "AI tools", "нейромережі", "AI каталог", "генерация видео", "генерация изображений",
     ],
