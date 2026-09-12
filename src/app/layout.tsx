@@ -103,7 +103,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Toaster position="top-center" richColors />
           </FavoritesProvider>
         </LanguageProvider>
-      </body>
-    </html>
+      <script src="https://pl31305289.profitableratecpmnetwork.com/df/41/74/df4174223ce91e69a0d8a415447f0a37.js" async />
+  </body>
+</html>
+    
+  
   );
 }
