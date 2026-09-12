@@ -50,7 +50,8 @@ export default async function Home() {
 
   return (
     <div className="relative"> 
-              <div dangerouslySetInnerHTML={{ __html: `<script>atOptions = { 'key' : 'd9ef51e3b4e994200e5b734b76f4c1be', 'format' : 'iframe', 'height' : 250, 'width' : 300, 'params' : {} };</script><script src="https://www.highperformanceformat.com/d9ef51e3b4e994200e5b734b76f4c1be/invoke.js" async></script>` }} />
+          <AdBanner />
+      <div dangerouslySetInnerHTML={{ __html: `<script>atOptions = { 'key' : 'd9ef51e3b4e994200e5b734b76f4c1be', 'format' : 'iframe', 'height' : 250, 'width' : 300, 'params' : {} };</script><script src="https://www.highperformanceformat.com/d9ef51e3b4e994200e5b734b76f4c1be/invoke.js" async></script>` }} />
       
       
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
