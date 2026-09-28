@@ -40,3 +40,16 @@ System Settings (+ content: Radar, Articles, Banners, Clicks). Every manual chan
 ## Environment variables
 - `STRIPE_SECRET_KEY` — required to enable PRO payments (Stripe Dashboard → Developers → API keys).
 - `ZERNIO_API_KEY` — Stage 2 (Social Studio).
+
+## Continuation (no Stripe key required)
+
+- **AI Studio** (`/pro/studio`, API `/api/pro/generate`): PRO content generator on the built-in Totalum AI.
+  Formats and credit costs live in `src/lib/pro-studio.ts` (article 5, campaign 4, video 4, email 3, ads 3, plan 5).
+  Access = plan rule `pro` or `content_generator`. Credits are debited via `withCredits` and refunded if the AI call fails;
+  402 `NO_CREDITS`, 403 `PRO_REQUIRED`, 401 `AUTH_REQUIRED`, rate limit 10/min.
+- **hasAccess** now checks any plan rule (`no_ads`, `content_generator`, `social_studio`, …), not only `pro`.
+- **No ads**: `AdBanner` renders nothing for users whose active plan has `no_ads` (checked once per request with React `cache`).
+- **Frequency capping**: cookie `aivexa_seen_offers` (last 12 featured offer slugs, 6 h) written by `SeenOffersCookie`,
+  read on the home page and passed to `rankFeaturedAffiliate({ recentlyShown })` (−0.12 score penalty).
+- **Telegram Mini App**: light `HapticFeedback.impactOccurred` on taps of links/buttons, only inside Telegram.
+- Without `STRIPE_SECRET_KEY`, PRO can be granted manually in Admin → Users → grant plan (credits are granted too).

@@ -58,15 +58,12 @@ export async function hasAccess(user: AnyUser, accessType: AccessType): Promise<
   const userId = userIdOf(user);
   if (!userId) return false;
 
-  if (accessType === "pro") {
-    const subscription = await getActiveSubscription(userId);
-    const rules = planOf(subscription)?.access_rules || [];
-    const granted = Boolean(subscription) && rules.includes("pro");
-    console.log(`[access] pro for ${userId}: ${granted}`);
-    return granted;
-  }
-
-  return false;
+  // Every other access type is granted by a rule of the active paid plan.
+  const subscription = await getActiveSubscription(userId);
+  const rules = planOf(subscription)?.access_rules || [];
+  const granted = Boolean(subscription) && rules.includes(accessType);
+  console.log(`[access] ${accessType} for ${userId}: ${granted}`);
+  return granted;
 }
 
 /** Plans that can be shown publicly (the catalog itself is never a plan). */

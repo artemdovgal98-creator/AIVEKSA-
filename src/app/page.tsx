@@ -14,6 +14,9 @@ import { Wand2, Wrench, Sparkles, Send, ArrowRight, LayoutGrid } from "lucide-re
 import { getSessionUser } from "@/lib/admin-auth";
 import { getRecommendedServices, rankFeaturedAffiliate } from "@/lib/ranking";
 import { publicDict } from "@/lib/i18n/public-dict";
+import { cookies } from "next/headers";
+import { SeenOffersCookie } from "@/components/site/SeenOffersCookie";
+import { SEEN_OFFERS_COOKIE, parseSeenOffers } from "@/lib/seen-offers";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +27,9 @@ export default async function Home() {
   const p = publicDict(lang).home;
   const sessionUser = await getSessionUser();
   const userId = sessionUser?.id || null;
+  // Frequency cap: offers this visitor saw in the last hours get a ranking penalty.
+  const cookieStore = await cookies();
+  const recentlyShown = parseSeenOffers(cookieStore.get(SEEN_OFFERS_COOKIE)?.value);
 
   const [categories, recommended, popular, newest, featuredAffiliate, allServices] = await Promise.all([
     getCategories(),
@@ -35,7 +41,7 @@ export default async function Home() {
     getServices({ filter: "popular", sort: "popular", limit: 8 }),
     getServices({ sort: "new", limit: 4 }),
     // Featured Affiliate AI — relevance-first ranking, max 3 cards so partners never dominate.
-    rankFeaturedAffiliate({ userId, visitorSeed: userId || "guest", limit: 3 }).catch((err) => {
+    rankFeaturedAffiliate({ userId, visitorSeed: userId || "guest", recentlyShown, limit: 3 }).catch((err) => {
       console.error("[home] featured affiliate failed:", err);
       return [];
     }),
@@ -163,6 +169,7 @@ export default async function Home() {
                 <ServiceCard key={entry.service._id} service={entry.service} delay={index * 40} />
               ))}
             </div>
+            <SeenOffersCookie slugs={featuredAffiliate.map((entry) => entry.offer.offer_slug || "").filter(Boolean)} />
           </section>
         )}
 

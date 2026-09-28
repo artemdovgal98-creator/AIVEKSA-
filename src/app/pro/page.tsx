@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { Check, Crown, Sparkles } from "lucide-react";
 import { getServerDict } from "@/lib/i18n/server";
 import { publicDict } from "@/lib/i18n/public-dict";
@@ -107,6 +108,13 @@ export default async function ProPage({ searchParams }: { searchParams: Promise<
             <p className="relative py-10 text-center text-sm text-foreground/50">{p.noPlan}</p>
           )}
         </section>
+      </div>
+
+      <div className="relative mt-8 text-center">
+        <Link href="/pro/studio" className="glass glass-hover inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">
+          <Sparkles className="h-4 w-4 text-[#a855f7]" />
+          {publicDict(lang).studio.open}
+        </Link>
       </div>
     </div>
   );

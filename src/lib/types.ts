@@ -377,8 +377,6 @@ export const LIVE_OFFER_STATUSES: OfferStatus[] = ["active", "tracking_ok", "tra
 // ---------------------------------------------------------------------------
 
 /** Access types checked by the backend. `main_catalog` is ALWAYS free. */
-export type AccessType = "main_catalog" | "pro";
-
 export const PLAN_ACCESS_RULES = [
   "pro",
   "social_studio",
@@ -388,6 +386,7 @@ export const PLAN_ACCESS_RULES = [
   "priority_credits",
 ] as const;
 export type PlanAccessRule = (typeof PLAN_ACCESS_RULES)[number];
+export type AccessType = "main_catalog" | PlanAccessRule;
 
 export interface PlanRecord {
   _id: string;
