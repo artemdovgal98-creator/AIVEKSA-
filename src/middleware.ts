@@ -44,6 +44,7 @@ const publicRoutes = [
   "/favorites",
   "/offers",
   "/go",
+  "/pro",
   "/sitemap.xml",
   "/robots.txt",
 

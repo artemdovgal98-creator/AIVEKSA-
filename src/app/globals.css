@@ -433,10 +433,44 @@ select optgroup {
   animation: aivexa-pulse-glow 4.5s ease-in-out infinite;
 }
 
+/*
+ * Logo: a slow breathing glow + subtle colour cycle (7 s, max 2 % scale).
+ * No flashing; transform stays inside the mark so the header never shifts.
+ */
+@keyframes aivexa-logo-breathe {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 22px -4px rgba(124, 145, 255, 0.9);
+    filter: hue-rotate(0deg);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 30px -2px rgba(168, 85, 247, 0.85);
+    filter: hue-rotate(22deg);
+  }
+}
+
+@keyframes aivexa-logo-text {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+
+.logo-mark {
+  animation: aivexa-logo-breathe 7s ease-in-out infinite;
+  will-change: transform;
+}
+
+.logo-word {
+  background-size: 200% 100%;
+  animation: aivexa-logo-text 7s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .animate-fade-up,
   .animate-float,
-  .animate-pulse-glow {
+  .animate-pulse-glow,
+  .logo-mark,
+  .logo-word {
     animation: none;
   }
 }

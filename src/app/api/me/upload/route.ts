@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { getCurrentDbUser } from "@/lib/admin-auth";
 import { totalumSdk } from "@/lib/totalum";
 import { MAX_PROFILE_PHOTOS, MAX_UPLOAD_BYTES, uploadToTotalum } from "@/lib/uploads";
+import { IMAGE_MIME_TYPES, sniffImageType } from "@/lib/url-safety";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +12,10 @@ export async function POST(request: Request) {
   try {
     const user = await getCurrentDbUser();
     if (!user) return NextResponse.json({ ok: false, error: "Unauthorized" }, { status: 401 });
+
+    if (!rateLimit(`me-upload:${user._id}:${clientIp(request)}`, 20, 60_000)) {
+      return NextResponse.json({ ok: false, error: "Too many uploads, try again in a minute" }, { status: 429 });
+    }
 
     const form = await request.formData();
     const files = form.getAll("file").filter((entry): entry is File => entry instanceof File);
@@ -28,6 +34,13 @@ export async function POST(request: Request) {
       if (file.size > MAX_UPLOAD_BYTES) {
         return NextResponse.json(
           { ok: false, error: `Файл "${file.name}" больше 10 МБ` },
+          { status: 400 }
+        );
+      }
+      const sniffed = sniffImageType(new Uint8Array(await file.slice(0, 16).arrayBuffer()));
+      if (!IMAGE_MIME_TYPES.includes(file.type) || !sniffed) {
+        return NextResponse.json(
+          { ok: false, error: `"${file.name}": only PNG, JPEG, WebP or GIF images are allowed` },
           { status: 400 }
         );
       }

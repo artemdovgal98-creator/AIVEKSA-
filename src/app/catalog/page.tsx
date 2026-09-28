@@ -41,6 +41,7 @@ export default async function CatalogPage({
         initialCategory={single(params.category)}
         initialFilter={single(params.filter) || "all"}
         initialSort={single(params.sort) || "popular"}
+        initialScope={single(params.scope) || "all"}
       />
     </div>
   );

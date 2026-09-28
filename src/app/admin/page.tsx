@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
+import { useAdminDict } from "@/lib/i18n/admin-dict";
+import { NotConfigured, StatusPill, fmtAmount, fmtDate } from "@/components/admin/kit";
 import { api } from "@/lib/api";
 import { categoryName } from "@/lib/localize";
 import { formatMoney, moneyIsZero, type Money } from "@/lib/money";
@@ -16,6 +18,11 @@ import {
   Percent,
   Sparkles,
   Users,
+  Activity,
+  Repeat,
+  ShoppingBag,
+  Target,
+  Handshake,
 } from "lucide-react";
 import type { CategoryRecord, ClickRecord, ServiceRecord } from "@/lib/types";
 
@@ -40,7 +47,37 @@ interface EarningsBlock {
   entries: number;
 }
 
+interface SlimOrder {
+  _id: string;
+  order_number?: string;
+  amount?: number;
+  currency?: string;
+  status?: string;
+  date?: string;
+  user?: string | null;
+  plan?: string | null;
+}
+
 interface Stats {
+  paymentsConfigured: boolean;
+  activeUsers: number;
+  activeSubscriptions: number;
+  ordersTotal: number;
+  ordersPaid: number;
+  revenue: Money;
+  topPlans: { name: string; orders: number }[];
+  recentPayments: SlimOrder[];
+  failedPayments: SlimOrder[];
+  affiliate: {
+    services: number;
+    clicks: number;
+    conversions: number;
+    revenue: Money;
+    epc: Money | null;
+    cr: number | null;
+    ctr: number | null;
+  };
+  topOffers: { _id: string; name: string; network: string | null; clicks: number; conversions: number; revenue: Money; epc: Money | null; cr: number | null }[];
   servicesTotal: number;
   servicesActive: number;
   usersTotal: number;
@@ -60,6 +97,7 @@ interface Stats {
 
 export default function AdminDashboardPage() {
   const { lang, t } = useLang();
+  const ad = useAdminDict();
   const [stats, setStats] = useState<Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,8 +152,128 @@ export default function AdminDashboardPage() {
     { label: e.month, value: earnings.month.earned },
   ];
 
+  const dd = ad.dashboard;
+  const na = (value: number | null | undefined, suffix = "") => (value === null || value === undefined ? "N/A" : `${value}${suffix}`);
+  const billingCards = [
+    { label: dd.activeUsers, value: stats.activeUsers, icon: Activity, accent: "text-emerald-300" },
+    { label: dd.activeSubs, value: stats.activeSubscriptions, icon: Repeat, accent: "text-[#d8b4fe]" },
+    { label: dd.revenue, value: stats.ordersPaid ? formatMoney(stats.revenue) : "N/A", icon: Wallet, accent: "text-emerald-300" },
+    { label: dd.orders, value: `${stats.ordersPaid} / ${stats.ordersTotal}`, icon: ShoppingBag, accent: "text-amber-300" },
+  ];
+  const aff = stats.affiliate;
+  const affiliateCards = [
+    { label: dd.affServices, value: aff.services, icon: Handshake, accent: "text-emerald-300" },
+    { label: dd.affClicks, value: aff.clicks, icon: MousePointerClick, accent: "text-amber-300" },
+    { label: dd.conversions, value: aff.conversions, icon: Target, accent: "text-cyan-300" },
+    { label: dd.affRevenue, value: aff.conversions ? formatMoney(aff.revenue) : "N/A", icon: Wallet, accent: "text-emerald-300" },
+    { label: dd.epc, value: aff.epc && aff.conversions ? formatMoney(aff.epc) : "N/A", icon: Sparkles, accent: "text-violet-300" },
+    { label: dd.cr, value: na(aff.cr, "%"), icon: Percent, accent: "text-cyan-300" },
+    { label: dd.ctr, value: na(aff.ctr, "%"), icon: Percent, accent: "text-amber-200" },
+  ];
+  const orderList = (list: SlimOrder[]) =>
+    list.length === 0 ? (
+      <p className="py-5 text-center text-sm text-foreground/40">{t.admin.stats.noData}</p>
+    ) : (
+      <ul className="space-y-1.5">
+        {list.map((order) => (
+          <li key={order._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-white/4 px-3 py-2 text-sm">
+            <span className="font-semibold text-white">{fmtAmount(order.amount, order.currency)}</span>
+            <StatusPill status={order.status} label={ad.billing.statuses[order.status || ""]} />
+            <span className="text-xs text-foreground/50">{order.plan || "—"}</span>
+            <span className="text-xs text-foreground/40">{order.user || "—"}</span>
+            <span className="ml-auto text-xs text-foreground/35">{fmtDate(order.date, true)}</span>
+          </li>
+        ))}
+      </ul>
+    );
+
   return (
     <div className="space-y-5">
+      {/* Subscriptions & payments — real orders only */}
+      <section className="glass-strong animate-fade-up rounded-2xl p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-display text-base font-bold text-white">{dd.billing}</h2>
+          {!stats.paymentsConfigured && <NotConfigured label={`Stripe · ${ad.common.notConfigured}`} />}
+        </div>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          {billingCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.label} className="rounded-2xl bg-white/5 px-4 py-3.5">
+                <Icon className={`mb-2 h-4.5 w-4.5 ${card.accent}`} />
+                <p className="font-display text-xl font-extrabold text-white">{card.value}</p>
+                <p className="mt-0.5 text-[11px] text-foreground/45">{card.label}</p>
+              </div>
+            );
+          })}
+        </div>
+        {!stats.paymentsConfigured && <p className="mt-3 text-xs text-amber-300/80">{dd.paymentsOff}</p>}
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          <div>
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-foreground/45">{dd.recentPayments}</h3>
+            {orderList(stats.recentPayments)}
+          </div>
+          <div>
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-foreground/45">{dd.failedPayments}</h3>
+            {orderList(stats.failedPayments)}
+          </div>
+          <div>
+            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-foreground/45">{dd.topPlans}</h3>
+            {stats.topPlans.length === 0 ? (
+              <p className="py-5 text-center text-sm text-foreground/40">{t.admin.stats.noData}</p>
+            ) : (
+              <ul className="space-y-1.5">
+                {stats.topPlans.map((plan) => (
+                  <li key={plan.name} className="flex items-center justify-between rounded-xl bg-white/4 px-3 py-2 text-sm">
+                    <span className="text-white">{plan.name}</span>
+                    <span className="font-bold text-foreground/80">{plan.orders}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Affiliate Marketplace — clicks attributed to offers, real conversions only */}
+      <section className="glass animate-fade-up rounded-2xl p-5">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="font-display text-base font-bold text-white">{dd.affiliate}</h2>
+          <Link href="/admin/affiliates" className="text-sm font-semibold text-[color:var(--neon-cyan)] hover:underline">
+            {ad.menu.marketplace} →
+          </Link>
+        </div>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
+          {affiliateCards.map((card) => {
+            const Icon = card.icon;
+            return (
+              <div key={card.label} className="rounded-2xl bg-white/5 px-4 py-3.5">
+                <Icon className={`mb-2 h-4.5 w-4.5 ${card.accent}`} />
+                <p className="font-display text-lg font-extrabold text-white">{card.value}</p>
+                <p className="mt-0.5 text-[11px] text-foreground/45">{card.label}</p>
+              </div>
+            );
+          })}
+        </div>
+        <h3 className="mb-2 mt-4 text-xs font-bold uppercase tracking-wide text-foreground/45">{dd.topOffers}</h3>
+        {stats.topOffers.length === 0 ? (
+          <p className="py-5 text-center text-sm text-foreground/40">{t.admin.stats.noData}</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {stats.topOffers.map((offer) => (
+              <li key={offer._id} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-white/4 px-3 py-2 text-sm">
+                <span className="min-w-0 flex-1 truncate font-medium text-white">{offer.name}</span>
+                <span className="text-xs text-foreground/45">{offer.network || "—"}</span>
+                <span className="text-xs text-foreground/70">{offer.clicks} clicks</span>
+                <span className="text-xs text-foreground/70">{offer.conversions} conv.</span>
+                <span className="text-xs text-foreground/70">EPC {offer.epc && offer.conversions ? formatMoney(offer.epc) : "N/A"}</span>
+                <span className="text-xs text-foreground/70">CR {offer.cr === null ? "N/A" : `${(offer.cr * 100).toFixed(2)}%`}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {cards.map((card) => {
           const Icon = card.icon;
@@ -255,7 +413,7 @@ export default function AdminDashboardPage() {
                   key={click._id}
                   className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-white/4 px-3 py-2 text-sm"
                 >
-                  <span className="font-medium text-white">{service?.name || "—"}</span>
+                  <span className="font-medium text-white">{service?.name || service?.title_ru || service?.slug || "—"}</span>
                   <span className="text-xs text-foreground/40">{click.device || "—"}</span>
                   {click.country && <span className="text-xs text-foreground/40">{click.country}</span>}
                   {click.language && (

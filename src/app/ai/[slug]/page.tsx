@@ -3,10 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getServerDict } from "@/lib/i18n/server";
 import { getServiceBySlug, getSimilarServices, incrementServiceViews } from "@/lib/catalog";
+import { attachPartnerOffers } from "@/lib/offers";
+import { publicDict } from "@/lib/i18n/public-dict";
 import {
   categoryName,
   expandedCategory,
   isAffiliatePartner,
+  outboundHref,
   pickLocalized,
   resolveTargetUrl,
   serviceLogo,
@@ -55,9 +58,11 @@ export async function generateMetadata({
 export default async function ServicePage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const { lang, t } = await getServerDict();
-  const service = await getServiceBySlug(slug);
+  const found = await getServiceBySlug(slug);
 
-  if (!service || service.active === "no") notFound();
+  if (!found || found.active === "no") notFound();
+  // Resolves the partner button (/go/<offer_slug>) from affiliate_offers.
+  const [service] = await attachPartnerOffers([found]);
 
   // Real page view counter — used by the admin dashboard (no invented numbers).
   await incrementServiceViews(service._id, service.views);
@@ -138,7 +143,7 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
               {partner && (
                 <span className="flex items-center gap-1 rounded-full bg-[color:var(--neon-violet)]/16 px-3 py-1 text-xs font-semibold text-[#d8b4fe]">
                   <BadgeCheck className="h-3.5 w-3.5" />
-                  {t.admin.affiliate.partner}
+                  {service.partner_offer?.sponsored ? publicDict(lang).card.sponsored : publicDict(lang).card.partner}
                 </span>
               )}
             </div>
@@ -170,9 +175,9 @@ export default async function ServicePage({ params }: { params: Promise<{ slug: 
 
         <div className="relative mt-6 flex flex-wrap items-center gap-3">
           <a
-            href={`/go/${service.slug}`}
+            href={outboundHref(service)}
             target="_blank"
-            rel="nofollow sponsored noopener noreferrer"
+            rel={partner ? "nofollow sponsored noopener noreferrer" : "nofollow noopener noreferrer"}
             className="glow-primary flex flex-1 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-[#4c6fff] via-[#7c5cff] to-[#a855f7] px-6 py-4 text-base font-bold text-white transition-transform active:scale-[0.98] sm:flex-none sm:px-10"
           >
             {t.service.tryNow}

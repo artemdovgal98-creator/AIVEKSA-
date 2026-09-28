@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { totalumSdk } from "@/lib/totalum";
 import { MAX_UPLOAD_BYTES, uploadToTotalum } from "@/lib/uploads";
+import { IMAGE_MIME_TYPES, sniffImageType } from "@/lib/url-safety";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +18,10 @@ export async function POST(request: Request) {
     const admin = await requireAdmin();
     if (!admin) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
+    if (!rateLimit(`upload:${admin._id}:${clientIp(request)}`, 30, 60_000)) {
+      return NextResponse.json({ ok: false, error: "Too many uploads, try again in a minute" }, { status: 429 });
+    }
+
     const form = await request.formData();
     const files = form.getAll("file").filter((entry): entry is File => entry instanceof File);
     if (files.length === 0) {
@@ -27,6 +33,15 @@ export async function POST(request: Request) {
       if (file.size > MAX_UPLOAD_BYTES) {
         return NextResponse.json(
           { ok: false, error: `Файл "${file.name}" больше 10 МБ` },
+          { status: 400 }
+        );
+      }
+      // Every admin upload is an image (logos, covers, banners): validate the
+      // declared type AND the real file signature.
+      const sniffed = sniffImageType(new Uint8Array(await file.slice(0, 16).arrayBuffer()));
+      if (!IMAGE_MIME_TYPES.includes(file.type) || !sniffed) {
+        return NextResponse.json(
+          { ok: false, error: `"${file.name}": only PNG, JPEG, WebP or GIF images are allowed` },
           { status: 400 }
         );
       }

@@ -2,40 +2,17 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { totalumSdk } from "@/lib/totalum";
 import { buildOfferPayload } from "@/lib/admin-payload";
+import { uniqueOfferSlug } from "@/lib/offers";
+import { logAdminAction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * GET — offers of one network (or of all of them), with the network and the
- * bound catalog service expanded so the admin table renders in a single call.
- *
- * Query params: `network` (network _id), `q` (name / offer id), `link`
- * ("with" | "without"), `bound` ("yes" | "no").
- */
-export async function GET(request: Request) {
+/** GET — raw offer list (network + service expanded). The marketplace view uses /api/admin/marketplace. */
+export async function GET() {
   try {
     const admin = await requireAdmin();
     if (!admin) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
-
-    const { searchParams } = new URL(request.url);
-    const network = (searchParams.get("network") || "").trim();
-    const q = (searchParams.get("q") || "").trim();
-    const link = (searchParams.get("link") || "").trim();
-    const bound = (searchParams.get("bound") || "").trim();
-
-    const filter: Record<string, any> = {};
-    if (network) filter.network = network;
-    if (q) {
-      const regex = { regex: escapeRegex(q), options: "i" };
-      filter._or = [{ offer_name: regex }, { external_id: regex }, { affiliate_url: regex }];
-    }
-
     const result = await totalumSdk.crud.query("affiliate_offers", {
-      _filter: filter,
       _sort: { order_position: "asc" },
       _limit: 2000,
       network: true,
@@ -43,46 +20,46 @@ export async function GET(request: Request) {
     });
     if (result.errors) {
       console.error("[api/admin/offers] list errors:", result.errors);
-      return NextResponse.json({ ok: false, error: result.errors }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "Failed to load offers" }, { status: 500 });
     }
-
-    let data = (result.data || []) as any[];
-    if (link === "with") data = data.filter((offer) => String(offer.affiliate_url || "").trim());
-    if (link === "without") data = data.filter((offer) => !String(offer.affiliate_url || "").trim());
-    if (bound === "yes") data = data.filter((offer) => Boolean(offer.service));
-    if (bound === "no") data = data.filter((offer) => !offer.service);
-
-    console.log(`[api/admin/offers] ${data.length} offers (network=${network || "all"}, q="${q}")`);
-    return NextResponse.json({ ok: true, data, total: data.length });
+    return NextResponse.json({ ok: true, data: result.data || [], total: (result.data || []).length });
   } catch (err: any) {
     console.error("[api/admin/offers] GET error:", err);
     return NextResponse.json({ ok: false, error: err?.message || "Unknown error" }, { status: 500 });
   }
 }
 
-/** POST — add a new offer to a network by hand. */
+/** POST — add a new offer (any network, optionally bound to an AI service). */
 export async function POST(request: Request) {
   try {
     const admin = await requireAdmin();
     if (!admin) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
     const body = await request.json().catch(() => ({}));
-    const payload = buildOfferPayload(body);
-    if (!payload.offer_name) {
-      return NextResponse.json({ ok: false, error: "Offer name is required" }, { status: 400 });
-    }
-    if (!payload.network) {
-      return NextResponse.json({ ok: false, error: "Network is required" }, { status: 400 });
-    }
-    if (typeof payload.active === "undefined") payload.active = "yes";
+    const { payload, error } = buildOfferPayload(body);
+    if (error) return NextResponse.json({ ok: false, error }, { status: 400 });
+    if (!payload.offer_name) return NextResponse.json({ ok: false, error: "Offer name is required" }, { status: 400 });
+    if (!payload.network) return NextResponse.json({ ok: false, error: "Network is required" }, { status: 400 });
+
+    const network = await totalumSdk.crud.getRecordById("affiliate_networks", payload.network);
+    const networkSlug = (network.data as any)?.slug || "offer";
+    payload.offer_slug = await uniqueOfferSlug(`${networkSlug}-${payload.offer_name}`);
+    payload.active ??= "yes";
+    payload.status ??= payload.affiliate_url ? "tracking_unknown" : "needs_review";
+    payload.sponsored ??= "no";
+    if (payload.service) {
+      const existing = await totalumSdk.crud.query("affiliate_offers", { _filter: { service: payload.service }, _limit: 1 });
+      payload.is_primary ??= (existing.data || []).length ? "no" : "yes";
+    } else payload.is_primary ??= "no";
 
     const created = await totalumSdk.crud.createRecord("affiliate_offers", payload);
     if (created.errors) {
       console.error("[api/admin/offers] create errors:", created.errors);
-      return NextResponse.json({ ok: false, error: created.errors }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "Failed to create offer" }, { status: 400 });
     }
-    console.log("[api/admin/offers] created", payload.offer_name, "by", admin._id);
-    return NextResponse.json({ ok: true, data: created.data });
+    const id = String((created.data as any)?.insertedId || "");
+    await logAdminAction(admin._id, "offer.create", "affiliate_offers", id, { name: payload.offer_name, network: networkSlug });
+    return NextResponse.json({ ok: true, data: { _id: id, offer_slug: payload.offer_slug } });
   } catch (err: any) {
     console.error("[api/admin/offers] POST error:", err);
     return NextResponse.json({ ok: false, error: err?.message || "Unknown error" }, { status: 500 });

@@ -8,8 +8,10 @@ import {
   PROFILE_TEXT_FIELDS,
   RADAR_IMPORTANCES,
   RADAR_TYPES,
+  OFFER_STATUSES,
   toFileLinks,
 } from "@/lib/types";
+import { safeHttpUrl } from "@/lib/url-safety";
 
 const YES_NO = (value: any, fallback: "yes" | "no" = "no"): "yes" | "no" =>
   value === "yes" || value === true ? "yes" : value === "no" || value === false ? "no" : fallback;
@@ -199,54 +201,41 @@ export function buildProfilePayload(body: any) {
 }
 
 /**
- * Affiliate-only whitelist used by the Affiliate Manager. It never touches the
- * catalog content of a service — only the monetisation fields.
+ * Whitelist for an affiliate offer (Affiliate Marketplace). URLs must be
+ * absolute http(s) — anything else is rejected, never silently stored.
  */
-export function buildAffiliatePayload(body: any) {
-  const affiliateUrl = str(body.affiliate_url);
-  const requestedStatus = AFFILIATE_STATUSES.includes(body.affiliate_status)
-    ? body.affiliate_status
-    : undefined;
-
-  // Pasting a link is enough: the service is marked connected and enabled
-  // automatically, so the "Try it" button starts using it immediately.
-  const status = requestedStatus || (affiliateUrl ? "connected" : "not_connected");
-
-  const payload: Record<string, any> = {
-    affiliate_url: affiliateUrl,
-    affiliate_status: status,
-    is_affiliate: affiliateUrl && body.is_affiliate !== "no" && body.is_affiliate !== false ? "yes" : "no",
-  };
-
-  if (typeof body.affiliate_program_url === "string") payload.affiliate_program_url = str(body.affiliate_program_url);
-  if (typeof body.affiliate_network === "string") payload.affiliate_network = str(body.affiliate_network);
-  if (typeof body.commission === "string") payload.commission = str(body.commission);
-  if (typeof body.affiliate_notes === "string") payload.affiliate_notes = str(body.affiliate_notes);
-
-  return payload;
-}
-
-/**
- * Whitelist for an affiliate offer. The affiliate URL is the only field that
- * really matters for monetisation, so it is always normalised (trimmed, and a
- * bare domain gets the https:// scheme it needs to be a valid redirect target).
- */
-export function buildOfferPayload(body: any) {
+export function buildOfferPayload(body: any): { payload: Record<string, any>; error?: string } {
   const payload: Record<string, any> = {};
+  const source = body || {};
 
-  if (typeof body.offer_name === "string") payload.offer_name = str(body.offer_name);
-  if (typeof body.external_id === "string") payload.external_id = str(body.external_id);
-  if (typeof body.notes === "string") payload.notes = str(body.notes);
-  if (typeof body.affiliate_url === "string") payload.affiliate_url = normalizeUrl(body.affiliate_url);
-  if (PAYOUT_MODELS.includes(body.payout_model)) payload.payout_model = body.payout_model;
-  if (body.active === "yes" || body.active === "no") payload.active = body.active;
-  if (typeof body.order_position !== "undefined") payload.order_position = num(body.order_position, 0);
+  if (typeof source.offer_name === "string") payload.offer_name = str(source.offer_name).slice(0, 160);
+  if (typeof source.external_id === "string") payload.external_id = str(source.external_id).slice(0, 80);
+  if (typeof source.notes === "string") payload.notes = str(source.notes).slice(0, 4000);
+  for (const key of ["affiliate_url", "tracking_url"] as const) {
+    if (typeof source[key] !== "string") continue;
+    if (!str(source[key])) {
+      payload[key] = "";
+      continue;
+    }
+    const url = safeHttpUrl(source[key]);
+    if (!url) return { payload, error: `${key}: invalid URL` };
+    payload[key] = url;
+  }
+  if (PAYOUT_MODELS.includes(source.payout_model)) payload.payout_model = source.payout_model;
+  if (OFFER_STATUSES.includes(source.status)) payload.status = source.status;
+  if (source.active === "yes" || source.active === "no") payload.active = source.active;
+  if (source.is_primary === "yes" || source.is_primary === "no") payload.is_primary = source.is_primary;
+  if (source.sponsored === "yes" || source.sponsored === "no") payload.sponsored = source.sponsored;
+  if (typeof source.order_position !== "undefined") payload.order_position = num(source.order_position, 0);
+  if (typeof source.payout !== "undefined") payload.payout = Math.max(num(source.payout, 0), 0);
+  if (typeof source.quality_score !== "undefined") payload.quality_score = Math.min(Math.max(num(source.quality_score, 0), 0), 100);
 
   // `null` explicitly unbinds a relation, `undefined` leaves it untouched.
-  if (typeof body.network !== "undefined") payload.network = str(body.network) || null;
-  if (typeof body.service !== "undefined") payload.service = str(body.service) || null;
+  const idOrNull = (value: any) => (/^[a-f0-9]{24}$/i.test(str(value)) ? str(value) : null);
+  if (typeof source.network !== "undefined") payload.network = idOrNull(source.network);
+  if (typeof source.service !== "undefined") payload.service = idOrNull(source.service);
 
-  return payload;
+  return { payload };
 }
 
 /** Adds the scheme a redirect needs; leaves an empty value empty. */

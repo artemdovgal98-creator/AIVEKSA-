@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { totalumSdk } from "@/lib/totalum";
 import { loadConversions, totalsFor } from "@/lib/earnings";
 import { isCurrency } from "@/lib/money";
+import { logAdminAction } from "@/lib/audit";
 import { CONVERSION_STATUSES, type ConversionStatus } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -36,14 +37,20 @@ export async function POST(request: Request) {
     if (!admin) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
     const body = (await request.json().catch(() => ({}))) as any;
-    const serviceId = typeof body.service === "string" ? body.service.trim() : "";
+    let serviceId = typeof body.service === "string" ? body.service.trim() : "";
+    const offerId = typeof body.offer === "string" && /^[a-f0-9]{24}$/i.test(body.offer.trim()) ? body.offer.trim() : "";
+    if (offerId && !serviceId) {
+      const offer = await totalumSdk.crud.getRecordById("affiliate_offers", offerId);
+      const ref = (offer.data as any)?.service;
+      serviceId = (ref && typeof ref === "object" ? ref._id : ref) || "";
+    }
     const amount = Number(body.earned_amount);
     const currency = isCurrency(body.currency) ? body.currency : "usd";
     const status: ConversionStatus = CONVERSION_STATUSES.includes(body.conversion_status)
       ? body.conversion_status
       : "confirmed";
 
-    if (!serviceId) return NextResponse.json({ ok: false, error: "service is required" }, { status: 400 });
+    if (!serviceId && !offerId) return NextResponse.json({ ok: false, error: "service or offer is required" }, { status: 400 });
     if (!Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json({ ok: false, error: "earned_amount must be a positive number" }, { status: 400 });
     }
@@ -53,7 +60,8 @@ export async function POST(request: Request) {
       : new Date().toISOString();
 
     const created = await totalumSdk.crud.createRecord("clicks", {
-      service: serviceId,
+      ...(serviceId ? { service: serviceId } : {}),
+      ...(offerId ? { offer: offerId } : {}),
       clicked_at: clickedAt,
       affiliate_click: "yes",
       manual_entry: "yes",
@@ -66,6 +74,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: created.errors }, { status: 400 });
     }
 
+    await logAdminAction(admin._id, "conversion.report", "clicks", String((created.data as any)?.insertedId || ""), {
+      service: serviceId,
+      offer: offerId,
+      amount,
+      currency,
+      status,
+    });
     console.log(`[api/admin/earnings] +${amount} ${currency} (${status}) for service ${serviceId} by ${admin._id}`);
     return NextResponse.json({ ok: true, data: created.data });
   } catch (err: any) {

@@ -10,7 +10,7 @@ import { LanguageSwitcher } from "./LanguageSwitcher";
 import { TelegramButton } from "./TelegramButton";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Sparkles, LayoutGrid, Wand2, Wrench, Star, BookOpen, Gift, Tags, Radar, User, Shield, LogOut } from "lucide-react";
+import { Menu, Sparkles, LayoutGrid, Wand2, Wrench, Star, BookOpen, Gift, Tags, Radar, User, Shield, LogOut, Crown } from "lucide-react";
 
 export function SiteHeader() {
   const { t } = useLang();
@@ -71,11 +71,11 @@ export function SiteHeader() {
     >
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-3 px-4 sm:px-6 lg:px-8">
         <Link href="/" className="group flex shrink-0 items-center gap-2">
-          <span className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#4c6fff] via-[#7c5cff] to-[#22d3ee] shadow-[0_0_22px_-4px_rgba(124,145,255,0.9)]">
+          <span className="logo-mark relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#4c6fff] via-[#7c5cff] to-[#22d3ee] shadow-[0_0_22px_-4px_rgba(124,145,255,0.9)]">
             <Sparkles className="h-4.5 w-4.5 text-white" strokeWidth={2.4} />
           </span>
           <span className="font-display text-lg font-extrabold tracking-tight">
-            AI<span className="neon-text">VEXA</span>
+            AI<span className="neon-text logo-word">VEXA</span>
           </span>
         </Link>
 
@@ -161,6 +161,16 @@ export function SiteHeader() {
                     </Link>
                   );
                 })}
+
+                <Link
+                  href="/pro"
+                  className={`flex items-center gap-3 rounded-xl px-3.5 py-3 text-base font-semibold transition-colors ${
+                    isActive("/pro") ? "bg-white/10 text-white" : "text-foreground/80 hover:bg-white/8"
+                  }`}
+                >
+                  <Crown className="h-5 w-5 text-amber-300" />
+                  AIVEXA PRO
+                </Link>
 
                 <TelegramButton variant="full" className="mt-2" />
 

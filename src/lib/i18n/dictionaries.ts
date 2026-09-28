@@ -200,7 +200,7 @@ const ru = {
     articles: "Статьи",
     banners: "Баннеры",
     clicks: "Клики",
-    affiliates: "Affiliate Manager",
+    affiliates: "Affiliate Marketplace",
     offers: "Партнёрские офферы",
     telegram: "Telegram-бот",
     bot: {
@@ -813,7 +813,7 @@ const uk: Dict = {
     articles: "Статті",
     banners: "Банери",
     clicks: "Кліки",
-    affiliates: "Affiliate Manager",
+    affiliates: "Affiliate Marketplace",
     offers: "Партнерські оффери",
     telegram: "Telegram-бот",
     bot: {
@@ -1424,7 +1424,7 @@ const en: Dict = {
     articles: "Articles",
     banners: "Banners",
     clicks: "Clicks",
-    affiliates: "Affiliate Manager",
+    affiliates: "Affiliate Marketplace",
     offers: "Affiliate offers",
     telegram: "Telegram bot",
     bot: {

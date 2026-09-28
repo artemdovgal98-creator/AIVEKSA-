@@ -3,9 +3,12 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLang } from "@/lib/i18n/context";
-import { Home, LayoutGrid, Wrench, Star, User } from "lucide-react";
+import { Home, LayoutGrid, Wrench, Star } from "lucide-react";
 
-/** Mobile-first bottom navigation (hidden from md upwards). */
+/**
+ * Mobile-first bottom navigation (hidden from md upwards).
+ * Exactly four items — the profile is reached from the header menu.
+ */
 export function BottomNav() {
   const pathname = usePathname();
   const { t } = useLang();
@@ -17,7 +20,6 @@ export function BottomNav() {
     { href: "/catalog", label: t.nav.catalog, icon: LayoutGrid },
     { href: "/tools", label: t.nav.tools, icon: Wrench },
     { href: "/favorites", label: t.nav.favorites, icon: Star },
-    { href: "/profile", label: t.nav.profile, icon: User },
   ];
 
   const isActive = (href: string) =>

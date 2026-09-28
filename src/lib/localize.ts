@@ -90,21 +90,25 @@ export function expandedCategory(service: ServiceRecord): CategoryRecord | null 
 }
 
 /**
- * The URL the "Try it" button ultimately opens.
- *
- * Rule: if an affiliate link exists (and was not explicitly disabled by the
- * admin) it wins, otherwise the official URL is used. An empty affiliate link
- * never blocks a service from being published.
+ * Official website of a service. Affiliate URLs are NOT read from the service
+ * any more — `affiliate_offers` is the single source of truth and the partner
+ * redirect is resolved server-side by /go/<slug>.
  */
 export function resolveTargetUrl(service: ServiceRecord): string {
-  const affiliate = (service.affiliate_url || "").trim();
-  if (affiliate && service.is_affiliate !== "no") return affiliate;
-  return service.official_url || "";
+  return (service.official_url || "").trim();
 }
 
-/** True when the visitor-facing "Affiliate Partner" mark should be shown. */
+/**
+ * True when the visitor-facing "Partner" mark should be shown: the partner
+ * toggle is ON and a live affiliate offer was attached server-side.
+ */
 export function isAffiliatePartner(service: ServiceRecord): boolean {
-  return service.affiliate_status === "connected" && Boolean((service.affiliate_url || "").trim());
+  return Boolean(service.partner_offer);
+}
+
+/** Where a card's main outbound button points. Always through tracked /go/ redirects. */
+export function outboundHref(service: ServiceRecord): string {
+  return service.partner_offer?.slug ? `/go/${service.partner_offer.slug}` : `/go/${service.slug}`;
 }
 
 export function slugify(input: string): string {
