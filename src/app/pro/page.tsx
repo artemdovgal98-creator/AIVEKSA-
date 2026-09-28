@@ -8,6 +8,8 @@ import { getSessionUser } from "@/lib/admin-auth";
 import { isPaymentsConfigured } from "@/lib/billing";
 import { ProCheckoutButton } from "@/components/site/ProCheckoutButton";
 import { CURRENCY_SYMBOLS } from "@/lib/money";
+import { getCreditPacks } from "@/lib/credit-packs";
+import { CreditPacks } from "@/components/site/CreditPacks";
 
 export const dynamic = "force-dynamic";
 
@@ -21,13 +23,17 @@ export default async function ProPage({ searchParams }: { searchParams: Promise<
   const { lang } = await getServerDict();
   const p = publicDict(lang).pro;
   const params = await searchParams;
-  const [plans, sessionUser] = await Promise.all([
+  const [plans, sessionUser, packs] = await Promise.all([
     getActivePlans().catch((err) => {
       console.error("[pro] plans load failed:", err);
       return [];
     }),
     getSessionUser(),
+    getCreditPacks(),
   ]);
+  const publicPacks = packs
+    .filter((pack) => pack.active)
+    .map((pack) => ({ id: pack.id, credits: pack.credits, price: pack.price, symbol: CURRENCY_SYMBOLS[pack.currency] || "$" }));
   const plan = plans.find((entry) => entry.slug === "pro") || plans[0] || null;
   const subscription = sessionUser?.id ? await getActiveSubscription(sessionUser.id).catch(() => null) : null;
   const activePlan = planOf(subscription);
@@ -109,6 +115,8 @@ export default async function ProPage({ searchParams }: { searchParams: Promise<
           )}
         </section>
       </div>
+
+      <CreditPacks packs={publicPacks} signedIn={Boolean(sessionUser?.id)} paymentsConfigured={isPaymentsConfigured()} />
 
       <div className="relative mt-8 text-center">
         <Link href="/pro/studio" className="glass glass-hover inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">

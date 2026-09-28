@@ -1,13 +1,13 @@
 import { NextResponse } from "next/server";
 import { getCurrentDbUser } from "@/lib/admin-auth";
-import { createPlanCheckout, isPaymentsConfigured } from "@/lib/billing";
+import { createCreditsCheckout, createPlanCheckout, isPaymentsConfigured } from "@/lib/billing";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 /**
- * POST { plan: "pro" } → Stripe Checkout URL. Only the plan slug is accepted
- * from the browser; price, currency and duration come from the database.
+ * POST { plan: "pro" } or { pack: "starter" } → Stripe Checkout URL. Only the
+ * slug / pack id is accepted from the browser; prices come from the server.
  */
 export async function POST(request: Request) {
   try {
@@ -20,17 +20,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: "Too many requests" }, { status: 429 });
     }
 
-    const body = (await request.json().catch(() => ({}))) as { plan?: unknown };
+    const body = (await request.json().catch(() => ({}))) as { plan?: unknown; pack?: unknown };
+    const pack = typeof body.pack === "string" ? body.pack.trim().toLowerCase() : "";
     const slug = typeof body.plan === "string" ? body.plan.trim().toLowerCase() : "";
-    if (!/^[a-z0-9-]{1,40}$/.test(slug)) return NextResponse.json({ ok: false, error: "Invalid plan" }, { status: 400 });
+    const target = pack || slug;
+    if (!/^[a-z0-9-]{1,40}$/.test(target)) return NextResponse.json({ ok: false, error: "Invalid plan" }, { status: 400 });
 
     const origin = (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/$/, "");
-    const { url, orderId } = await createPlanCheckout(user, slug, origin);
+    const { url, orderId } = pack ? await createCreditsCheckout(user, pack, origin) : await createPlanCheckout(user, slug, origin);
     return NextResponse.json({ ok: true, data: { url, orderId } });
   } catch (err: any) {
     const message = err?.message || "Unknown error";
     console.error("[api/billing/checkout] error:", err);
-    const status = message === "PLAN_NOT_AVAILABLE" ? 404 : 500;
+    const status = message === "PLAN_NOT_AVAILABLE" || message === "PACK_NOT_AVAILABLE" ? 404 : 500;
     return NextResponse.json({ ok: false, error: message }, { status });
   }
 }

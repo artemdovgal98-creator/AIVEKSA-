@@ -53,3 +53,11 @@ System Settings (+ content: Radar, Articles, Banners, Clicks). Every manual chan
   read on the home page and passed to `rankFeaturedAffiliate({ recentlyShown })` (−0.12 score penalty).
 - **Telegram Mini App**: light `HapticFeedback.impactOccurred` on taps of links/buttons, only inside Telegram.
 - Without `STRIPE_SECRET_KEY`, PRO can be granted manually in Admin → Users → grant plan (credits are granted too).
+
+## Credit packs (one-time purchase)
+
+- Packs live in `admin_settings.credit_packs` (JSON), defaults in `src/lib/credit-packs.ts`: 50 / $4.99, 150 / $12.99, 400 / $29.99.
+  Edited in Admin → Credit System (`/api/admin/credit-packs`, validated, audited as `credit_packs.update`).
+- `/pro#credits` shows the packs; `POST /api/billing/checkout { pack }` → Stripe Checkout (price from the server only).
+- Fulfilment reuses `fulfilCheckoutSession`: session metadata `kind=credits` → ledger entry type `purchase` (reference = order id). Idempotent via the order `paid` status.
+- Without `STRIPE_SECRET_KEY` the buttons are disabled and marked NOT CONFIGURED.

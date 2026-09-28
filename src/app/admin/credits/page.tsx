@@ -6,6 +6,7 @@ import { ArrowDownCircle, ArrowUpCircle, Coins, Users } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAdminDict } from "@/lib/i18n/admin-dict";
 import { BillingTable } from "@/components/admin/BillingTable";
+import { CreditPacksEditor } from "@/components/admin/CreditPacksEditor";
 import { PageHeader, StatCard } from "@/components/admin/kit";
 
 interface Tx {
@@ -51,6 +52,7 @@ export default function AdminCreditsPage() {
           {a.menu.users} →
         </Link>
       </p>
+      <CreditPacksEditor />
       <BillingTable type="transactions" />
     </div>
   );

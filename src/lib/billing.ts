@@ -3,6 +3,7 @@ import { totalumSdk } from "@/lib/totalum";
 import { getStripe } from "@/lib/stripe";
 import { getActiveSubscription, getPlanBySlug } from "@/lib/access";
 import { applyCreditChange } from "@/lib/credits";
+import { getCreditPack } from "@/lib/credit-packs";
 import type { OrderRecord, PlanRecord } from "@/lib/types";
 
 /**
@@ -75,19 +76,71 @@ export async function createPlanCheckout(
   return { url: session.url || "", orderId };
 }
 
+/** One-time credit pack purchase. Price and credit amount come from the server-side pack list. */
+export async function createCreditsCheckout(
+  user: { _id: string; email?: string },
+  packId: string,
+  origin: string
+): Promise<{ url: string; orderId: string }> {
+  if (!isPaymentsConfigured()) throw new Error("PAYMENTS_NOT_CONFIGURED");
+  const pack = await getCreditPack(packId);
+  if (!pack) throw new Error("PACK_NOT_AVAILABLE");
+
+  const created = await totalumSdk.crud.createRecord("orders", {
+    order_number: orderNumber(),
+    user: user._id,
+    amount: pack.price,
+    currency: pack.currency,
+    status: "pending",
+    provider: "stripe",
+    description: `AIVEXA CREDITS — ${pack.credits}`,
+  });
+  if (created.errors) {
+    console.error("[billing] credits order create failed:", created.errors);
+    throw new Error("Order create failed");
+  }
+  const orderId = String((created.data as any)?.insertedId || "");
+
+  const session = await getStripe().checkout.sessions.create({
+    mode: "payment",
+    line_items: [
+      {
+        quantity: 1,
+        price_data: {
+          currency: pack.currency,
+          unit_amount: toCents(pack.price),
+          product_data: { name: `AIVEXA CREDITS × ${pack.credits}` },
+        },
+      },
+    ],
+    customer_email: user.email || undefined,
+    client_reference_id: user._id,
+    // Written by the server — Stripe returns it untouched, so it is trusted at fulfilment.
+    metadata: { order_id: orderId, user_id: user._id, kind: "credits", credits: String(pack.credits), pack_id: pack.id },
+    success_url: `${origin}/pro/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${origin}/pro?cancelled=1#credits`,
+  });
+
+  const linked = await totalumSdk.crud.editRecordById("orders", orderId, { provider_payment_id: session.id });
+  if (linked.errors) console.error("[billing] failed to link session to order:", linked.errors);
+  console.log(`[billing] credits checkout created: order ${orderId}, pack ${pack.id}, user ${user._id}`);
+  return { url: session.url || "", orderId };
+}
+
 /** Idempotent fulfilment — safe to call from both the webhook and the success page. */
-export async function fulfilCheckoutSession(sessionId: string): Promise<{ status: string; orderId?: string }> {
+export async function fulfilCheckoutSession(sessionId: string): Promise<{ status: string; orderId?: string; kind?: string }> {
   if (!isPaymentsConfigured()) return { status: "not_configured" };
   if (!/^cs_[A-Za-z0-9_]+$/.test(sessionId)) return { status: "invalid" };
 
   const session = await getStripe().checkout.sessions.retrieve(sessionId);
   const orderId = String(session.metadata?.order_id || "");
   if (!orderId) return { status: "unknown_order" };
+  const kind = session.metadata?.kind === "credits" ? "credits" : "plan";
 
   const orderResult = await totalumSdk.crud.query("orders", { _filter: { _id: orderId }, _limit: 1, plan: true });
   const order = ((orderResult.data || []) as unknown as OrderRecord[])[0];
   if (!order) return { status: "unknown_order" };
-  if (order.status === "paid") return { status: "paid", orderId };
+  if (order.status === "paid") return { status: "paid", orderId, kind };
   if (order.provider_payment_id && order.provider_payment_id !== session.id) return { status: "mismatch", orderId };
 
   if (session.payment_status !== "paid") {
@@ -117,9 +170,16 @@ export async function fulfilCheckoutSession(sessionId: string): Promise<{ status
 
   const userId = typeof order.user === "object" ? order.user?._id : (order.user as string);
   const plan = order.plan && typeof order.plan === "object" ? (order.plan as PlanRecord) : null;
-  if (userId && plan) await activatePlan(userId, plan, "stripe", String(session.id), orderId);
-  console.log("[billing] order fulfilled:", orderId);
-  return { status: "paid", orderId };
+  if (userId && kind === "credits") {
+    const credits = Math.max(Math.trunc(Number(session.metadata?.credits) || 0), 0);
+    if (credits > 0) {
+      await applyCreditChange({ userId, amount: credits, type: "purchase", referenceId: orderId, description: `Credit pack: ${credits}` });
+    }
+  } else if (userId && plan) {
+    await activatePlan(userId, plan, "stripe", String(session.id), orderId);
+  }
+  console.log(`[billing] order fulfilled: ${orderId} (${kind})`);
+  return { status: "paid", orderId, kind };
 }
 
 /**

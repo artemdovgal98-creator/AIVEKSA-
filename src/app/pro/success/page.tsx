@@ -14,6 +14,7 @@ function SuccessInner() {
   const params = useSearchParams();
   const sessionId = params.get("session_id") || "";
   const [status, setStatus] = useState<string>("checking");
+  const [kind, setKind] = useState<string>("plan");
 
   useEffect(() => {
     if (!sessionId) {
@@ -24,7 +25,8 @@ function SuccessInner() {
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
       // The server re-reads the session from Stripe; the browser is never trusted.
-      const response = await api.post<{ status: string }>("/api/billing/confirm", { session_id: sessionId });
+      const response = await api.post<{ status: string; kind?: string }>("/api/billing/confirm", { session_id: sessionId });
+      if (response.ok && response.data?.kind) setKind(response.data.kind);
       const next = response.ok ? response.data?.status || "pending" : "failed";
       console.log("[pro/success] payment status:", next);
       setStatus(next);
@@ -36,7 +38,7 @@ function SuccessInner() {
 
   const view =
     status === "paid"
-      ? { icon: <CheckCircle2 className="h-12 w-12 text-emerald-300" />, text: p.successPaid }
+      ? { icon: <CheckCircle2 className="h-12 w-12 text-emerald-300" />, text: kind === "credits" ? p.successCredits : p.successPaid }
       : status === "pending" || status === "checking"
         ? { icon: status === "checking" ? <Loader2 className="h-12 w-12 animate-spin text-foreground/50" /> : <Clock className="h-12 w-12 text-amber-300" />, text: status === "checking" ? p.success : p.successPending }
         : { icon: <XCircle className="h-12 w-12 text-rose-300" />, text: p.successFailed };
