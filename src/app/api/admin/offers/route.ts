@@ -15,7 +15,7 @@ export async function GET() {
     const result = await totalumSdk.crud.query("affiliate_offers", {
       _sort: { order_position: "asc" },
       _limit: 2000,
-      network: true,
+      network: { _omit: { postback_secret: true } },
       service: true,
     });
     if (result.errors) {

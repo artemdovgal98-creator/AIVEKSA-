@@ -3,6 +3,7 @@ import { headers, cookies } from "next/headers";
 import { totalumSdk } from "@/lib/totalum";
 import { getSessionUser } from "@/lib/admin-auth";
 import { LANG_COOKIE } from "@/lib/i18n/server";
+import { describeReferrer } from "@/lib/affiliate-tracking";
 
 function detectDevice(userAgent: string): "mobile" | "tablet" | "desktop" {
   const ua = userAgent.toLowerCase();
@@ -20,8 +21,12 @@ const BOT_UA = /bot|crawler|spider|slurp|facebookexternalhit|preview|headless|cu
 export async function recordClick(data: {
   serviceId?: string;
   offerId?: string;
+  networkId?: string;
   targetUrl: string;
   affiliate: boolean;
+  clickId?: string;
+  sessionId?: string;
+  origin?: string;
 }) {
   try {
     const headerList = await headers();
@@ -43,6 +48,12 @@ export async function recordClick(data: {
       target_url: data.targetUrl,
       affiliate_click: data.affiliate ? "yes" : "no",
     };
+    const { referrer, landingPage } = describeReferrer(headerList.get("referer"), data.origin || "");
+    if (data.clickId) clickData.click_id = data.clickId;
+    if (data.sessionId) clickData.session_id = data.sessionId;
+    if (referrer) clickData.referrer = referrer;
+    if (landingPage) clickData.landing_page = landingPage;
+    if (data.networkId) clickData.network = data.networkId;
     if (data.serviceId) clickData.service = data.serviceId;
     if (data.offerId) clickData.offer = data.offerId;
     if (country && country !== "XX") clickData.country = country;
@@ -50,6 +61,7 @@ export async function recordClick(data: {
 
     const created = await totalumSdk.crud.createRecord("clicks", clickData);
     if (created.errors) console.error("[go] click record errors:", created.errors);
+    else if (data.clickId) console.log(`[go] click ${data.clickId} recorded`);
   } catch (err) {
     console.error("[go] click record failed:", err);
   }

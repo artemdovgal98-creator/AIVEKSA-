@@ -10,6 +10,7 @@ import { formatMoney } from "@/lib/money";
 import { serviceTitle } from "@/lib/localize";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState, ErrorState, Field, LoadingBlock, PageHeader, Pill, Segmented, type SegmentedProps, StatCard, ghostButton, inputClass, primaryButton } from "@/components/admin/kit";
+import { NetworkTracking } from "@/components/admin/marketplace/NetworkTracking";
 import { OfferRow, type ServiceOption } from "@/components/admin/marketplace/OfferRow";
 import { pct, type MarketData, type MarketOffer } from "@/components/admin/marketplace/types";
 import { DEFAULT_RANKING_WEIGHTS, type RankingWeights, type ServiceRecord } from "@/lib/types";
@@ -295,6 +296,7 @@ export default function AffiliateMarketplacePage() {
                 <div><p className="font-bold text-white">{pct(n.cr)}</p><p className="text-foreground/40">CR</p></div>
               </div>
               {n.offers === 0 && <p className="mt-3 text-[11px] text-amber-300/80">{a.common.notConfigured}</p>}
+              <NetworkTracking network={n} onChanged={() => load(range)} />
             </div>
           ))}
         </div>

@@ -23,13 +23,14 @@ export default async function ProPage({ searchParams }: { searchParams: Promise<
   const { lang } = await getServerDict();
   const p = publicDict(lang).pro;
   const params = await searchParams;
-  const [plans, sessionUser, packs] = await Promise.all([
+  const [plans, sessionUser, packs, paymentsConfigured] = await Promise.all([
     getActivePlans().catch((err) => {
       console.error("[pro] plans load failed:", err);
       return [];
     }),
     getSessionUser(),
     getCreditPacks(),
+    isPaymentsConfigured(),
   ]);
   const publicPacks = packs
     .filter((pack) => pack.active)
@@ -105,7 +106,7 @@ export default async function ProPage({ searchParams }: { searchParams: Promise<
                 <ProCheckoutButton
                   planSlug={plan.slug}
                   signedIn={Boolean(sessionUser?.id)}
-                  paymentsConfigured={isPaymentsConfigured()}
+                  paymentsConfigured={paymentsConfigured}
                   activeUntil={activeUntil}
                 />
               </div>
@@ -116,7 +117,7 @@ export default async function ProPage({ searchParams }: { searchParams: Promise<
         </section>
       </div>
 
-      <CreditPacks packs={publicPacks} signedIn={Boolean(sessionUser?.id)} paymentsConfigured={isPaymentsConfigured()} />
+      <CreditPacks packs={publicPacks} signedIn={Boolean(sessionUser?.id)} paymentsConfigured={paymentsConfigured} />
 
       <div className="relative mt-8 text-center">
         <Link href="/pro/studio" className="glass glass-hover inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white">

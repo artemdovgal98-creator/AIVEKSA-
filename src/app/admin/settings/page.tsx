@@ -5,6 +5,7 @@ import Link from "next/link";
 import { api } from "@/lib/api";
 import { useAdminDict } from "@/lib/i18n/admin-dict";
 import { useSystemStatus } from "@/components/admin/useSystemStatus";
+import { PaymentSettingsCard } from "@/components/admin/PaymentSettingsCard";
 import { EmptyState, NotConfigured, PageHeader, Pill, fmtDate } from "@/components/admin/kit";
 
 interface AuditRow {
@@ -56,6 +57,8 @@ export default function AdminSettingsPage() {
           </p>
         </div>
       </section>
+
+      <PaymentSettingsCard />
 
       <section className="glass rounded-2xl p-5">
         <h3 className="mb-3 font-display text-sm font-bold text-white">{d.audit}</h3>

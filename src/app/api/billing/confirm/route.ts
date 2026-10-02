@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: Request) {
   try {
-    if (!isPaymentsConfigured()) return NextResponse.json({ ok: false, error: "NOT_CONFIGURED" }, { status: 503 });
+    if (!(await isPaymentsConfigured())) return NextResponse.json({ ok: false, error: "NOT_CONFIGURED" }, { status: 503 });
     const user = await getCurrentDbUser();
     if (!user) return NextResponse.json({ ok: false, error: "Sign in required" }, { status: 401 });
     if (!rateLimit(`confirm:${user._id}:${clientIp(request)}`, 30, 60_000)) {

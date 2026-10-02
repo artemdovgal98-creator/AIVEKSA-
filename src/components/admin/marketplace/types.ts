@@ -40,6 +40,8 @@ export interface MarketNetwork {
   accent_color: string;
   website: string;
   active: string;
+  subid_param: string;
+  postbackConfigured: boolean;
   offers: number;
   live: number;
   clicks: number;

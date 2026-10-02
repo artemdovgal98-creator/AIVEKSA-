@@ -42,7 +42,7 @@ export async function getOfferById(id: string): Promise<AffiliateOfferRecord | n
   const result = await totalumSdk.crud.query("affiliate_offers", {
     _filter: { _id: id },
     _limit: 1,
-    network: true,
+    network: { _omit: { postback_secret: true } },
     service: true,
   });
   if (result.errors) {
@@ -56,7 +56,7 @@ export async function getOfferBySlug(slug: string): Promise<AffiliateOfferRecord
   const result = await totalumSdk.crud.query("affiliate_offers", {
     _filter: { offer_slug: slug },
     _limit: 1,
-    network: true,
+    network: { _omit: { postback_secret: true } },
     service: true,
   });
   if (result.errors) {
@@ -71,7 +71,7 @@ export async function getServiceOffers(serviceId: string): Promise<AffiliateOffe
     _filter: { service: serviceId },
     _sort: { order_position: "asc" },
     _limit: 50,
-    network: true,
+    network: { _omit: { postback_secret: true } },
   });
   if (result.errors) {
     console.error("[offers] getServiceOffers failed for", serviceId, result.errors);
@@ -106,7 +106,7 @@ export async function getLiveOfferServiceIds(): Promise<Map<string, AffiliateOff
   const result = await totalumSdk.crud.query("affiliate_offers", {
     _filter: { active: "yes" },
     _limit: 1000,
-    network: true,
+    network: { _omit: { postback_secret: true } },
   });
   if (result.errors) {
     console.error("[offers] getLiveOfferServiceIds failed:", result.errors);
@@ -167,7 +167,7 @@ export async function getPublicOffers(): Promise<AffiliateOfferRecord[]> {
     _filter: { active: "yes" },
     _sort: { order_position: "asc" },
     _limit: 1000,
-    network: true,
+    network: { _omit: { postback_secret: true } },
     service: true,
   });
   if (result.errors) {

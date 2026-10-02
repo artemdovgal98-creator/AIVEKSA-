@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { getServiceBySlug } from "@/lib/catalog";
 import { getOfferBySlug, getPrimaryLiveOffer, offerIsLive } from "@/lib/offers";
-import { recordClick } from "@/lib/click-tracking";
+import { trackedRedirect } from "@/lib/go-redirect";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { safeHttpUrl } from "@/lib/url-safety";
 
@@ -37,11 +37,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         console.warn("[go] service has no valid target url:", slug);
         return NextResponse.redirect(`${origin}/ai/${service.slug}`, 302);
       }
-      if (countable) {
-        await recordClick({ serviceId: service._id, offerId: affiliateUrl ? offer!._id : undefined, targetUrl: target, affiliate: Boolean(affiliateUrl) });
-      }
       console.log(`[go] ${slug} → ${affiliateUrl ? "partner offer" : "official site"}`);
-      return NextResponse.redirect(target, 302);
+      return trackedRedirect(request, { target, serviceId: service._id, offer: affiliateUrl ? offer : null, countable });
     }
 
     const offer = await getOfferBySlug(slug);
@@ -54,9 +51,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ slug
         console.warn("[go] offer is not live:", slug, offer.status);
         return NextResponse.redirect(serviceSlug ? `${origin}/ai/${serviceSlug}` : `${origin}/offers`, 302);
       }
-      if (countable) await recordClick({ serviceId, offerId: offer._id, targetUrl: target, affiliate: true });
       console.log(`[go] offer ${slug} → partner url`);
-      return NextResponse.redirect(target, 302);
+      return trackedRedirect(request, { target, serviceId, offer, countable });
     }
 
     console.warn("[go] unknown slug:", slug);

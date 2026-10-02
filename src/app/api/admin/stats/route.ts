@@ -180,7 +180,7 @@ export async function GET() {
       .sort((a, b) => revenueScalar(b[1].revenue) - revenueScalar(a[1].revenue) || b[1].clicks - a[1].clicks)
       .slice(0, 8);
     const offerRows = offerIds.length
-      ? await totalumSdk.crud.query("affiliate_offers", { _filter: { _id: { in: offerIds.map(([id]) => id) } }, _limit: 8, network: true })
+      ? await totalumSdk.crud.query("affiliate_offers", { _filter: { _id: { in: offerIds.map(([id]) => id) } }, _limit: 8, network: { _omit: { postback_secret: true } } })
       : { data: [] as any[] };
     const offerById = new Map(((offerRows.data || []) as any[]).map((offer) => [offer._id, offer]));
     const topOffers = offerIds.map(([id, m]) => ({
@@ -197,7 +197,7 @@ export async function GET() {
     return NextResponse.json({
       ok: true,
       data: {
-        paymentsConfigured: isPaymentsConfigured(),
+        paymentsConfigured: await isPaymentsConfigured(),
         activeUsers: activeUserIds.size,
         activeSubscriptions: readCount(activeSubs),
         ordersTotal: readCount(ordersAll),

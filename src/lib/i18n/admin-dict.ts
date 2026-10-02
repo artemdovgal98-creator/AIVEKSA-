@@ -342,6 +342,23 @@ const ru = {
     rankingLink: "Веса ранжирования партнёрских карточек — в Affiliate Marketplace → Ranking.",
     plansLink: "Цена AIVEXA PRO настраивается в разделе «Тарифы».",
   },
+  paymentsCfg: {
+    title: "Платежи · Paddle",
+    subtitle: "Ключи можно добавить в любое время. Пока их нет, кнопки оплаты показывают NOT CONFIGURED, всё остальное работает.",
+    enabled: "Приём платежей включён",
+    environment: "Среда",
+    auto: "Авто",
+    clientToken: "Client-side token (live_… / test_…)",
+    webhookSecret: "Webhook secret key",
+    apiKey: "API key (отмена подписки, возвраты)",
+    proPrice: "Price ID — AIVEXA PRO",
+    packPrices: "Price ID пакетов кредитов (меняются в «Система кредитов»)",
+    webhookUrl: "Адрес уведомлений для Paddle",
+    keep: "сохранён — оставьте пустым, чтобы не менять",
+    empty: "не задан",
+    clear: "Удалить",
+    save: "Сохранить настройки оплаты",
+  },
 };
 
 type AdminDict = typeof ru;
@@ -634,6 +651,23 @@ const uk: AdminDict = {
     rankingLink: "Ваги ранжування партнерських карток — в Affiliate Marketplace → Ranking.",
     plansLink: "Ціна AIVEXA PRO налаштовується в розділі «Тарифи».",
   },
+  paymentsCfg: {
+    title: "Платежі · Paddle",
+    subtitle: "Ключі можна додати будь-коли. Поки їх немає, кнопки оплати показують NOT CONFIGURED, усе інше працює.",
+    enabled: "Приймання платежів увімкнено",
+    environment: "Середовище",
+    auto: "Авто",
+    clientToken: "Client-side token (live_… / test_…)",
+    webhookSecret: "Webhook secret key",
+    apiKey: "API key (скасування підписки, повернення)",
+    proPrice: "Price ID — AIVEXA PRO",
+    packPrices: "Price ID пакетів кредитів (змінюються в «Система кредитів»)",
+    webhookUrl: "Адреса сповіщень для Paddle",
+    keep: "збережено — залиште порожнім, щоб не змінювати",
+    empty: "не задано",
+    clear: "Видалити",
+    save: "Зберегти налаштування оплати",
+  },
 };
 
 const en: AdminDict = {
@@ -923,6 +957,23 @@ const en: AdminDict = {
     admin: "Admin",
     rankingLink: "Affiliate card ranking weights live in Affiliate Marketplace → Ranking.",
     plansLink: "The AIVEXA PRO price is configured in Plans.",
+  },
+  paymentsCfg: {
+    title: "Payments · Paddle",
+    subtitle: "Keys can be added at any time. Until then the payment buttons show NOT CONFIGURED; everything else works.",
+    enabled: "Accept payments",
+    environment: "Environment",
+    auto: "Auto",
+    clientToken: "Client-side token (live_… / test_…)",
+    webhookSecret: "Webhook secret key",
+    apiKey: "API key (subscription cancel, refunds)",
+    proPrice: "Price ID — AIVEXA PRO",
+    packPrices: "Credit pack price IDs (edited in Credit System)",
+    webhookUrl: "Notification URL for Paddle",
+    keep: "saved — leave empty to keep",
+    empty: "not set",
+    clear: "Remove",
+    save: "Save payment settings",
   },
 };
 

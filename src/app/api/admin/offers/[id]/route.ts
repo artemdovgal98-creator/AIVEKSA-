@@ -48,7 +48,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     await logAdminAction(admin._id, "offer.update", "affiliate_offers", id, payload);
-    const fresh = await totalumSdk.crud.query("affiliate_offers", { _filter: { _id: id }, _limit: 1, network: true, service: true });
+    const fresh = await totalumSdk.crud.query("affiliate_offers", { _filter: { _id: id }, _limit: 1, network: { _omit: { postback_secret: true } }, service: true });
     return NextResponse.json({ ok: true, data: (fresh.data || [])[0] || null });
   } catch (err: any) {
     console.error("[api/admin/offers] PUT error:", err);

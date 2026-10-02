@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { readSettings } from "@/lib/telegram";
 import { isPaymentsConfigured, paymentProvider } from "@/lib/billing";
 import { listWebhookEvents } from "@/lib/webhook-events";
+import { getPaddleConfig } from "@/lib/payments/paddle";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,7 @@ export async function GET() {
     const admin = await requireAdmin();
     if (!admin) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     const telegram = await readSettings();
+    const paddle = await getPaddleConfig();
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
     return NextResponse.json({
       ok: true,
@@ -19,12 +21,12 @@ export async function GET() {
         appUrl: appUrl || null,
         payments: {
           provider: paymentProvider().name,
-          status: paymentProvider().configStatus(),
-          configured: isPaymentsConfigured(),
+          status: await paymentProvider().configStatus(),
+          configured: await isPaymentsConfigured(),
           // Only presence flags — values are never returned.
-          clientToken: Boolean((process.env.PADDLE_CLIENT_TOKEN || "").trim()),
-          webhookSecret: Boolean((process.env.PADDLE_WEBHOOK_SECRET || "").trim()),
-          apiKey: Boolean((process.env.PADDLE_API_KEY || "").trim()),
+          clientToken: Boolean(paddle.clientToken),
+          webhookSecret: Boolean(paddle.webhookSecret),
+          apiKey: Boolean(paddle.apiKey),
           webhookUrl: appUrl ? `${appUrl}/api/paddle/webhook` : null,
           events: [
             "transaction.completed",

@@ -35,7 +35,7 @@ export async function GET(request: Request) {
     const lang = await getServerLang();
 
     const [offersResult, networksResult, metrics, weights] = await Promise.all([
-      totalumSdk.crud.query("affiliate_offers", { _sort: { order_position: "asc" }, _limit: 2000, network: true, service: true }),
+      totalumSdk.crud.query("affiliate_offers", { _sort: { order_position: "asc" }, _limit: 2000, network: { _omit: { postback_secret: true } }, service: true }),
       totalumSdk.crud.query("affiliate_networks", { _sort: { order_position: "asc" }, _limit: 50 }),
       loadOfferMetrics(sinceFor(range)),
       getRankingWeights(),
@@ -109,6 +109,8 @@ export async function GET(request: Request) {
         accent_color: network.accent_color || "",
         website: network.website || "",
         active: network.active || "yes",
+        subid_param: network.subid_param || "",
+        postbackConfigured: Boolean(String(network.postback_secret || "").trim()),
         offers: own.length,
         live: own.filter((offer) => offer.live).length,
         clicks,

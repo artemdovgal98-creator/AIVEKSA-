@@ -3,7 +3,7 @@ import { totalumSdk } from "@/lib/totalum";
 import { getActiveSubscription, getPlanBySlug } from "@/lib/access";
 import { applyCreditChange, getBalance } from "@/lib/credits";
 import { getCreditPack, getCreditPackByPriceId } from "@/lib/credit-packs";
-import { PADDLE_PLAN_PRICES, paddleApiConfigured, paddleProvider } from "@/lib/payments/paddle";
+import { getPaddleConfig, paddleApiConfigured, paddleProvider } from "@/lib/payments/paddle";
 import type { CheckoutSession, PaymentProvider, ProviderTransaction } from "@/lib/payments/provider";
 import type { OrderRecord, PlanRecord, SubscriptionRecord } from "@/lib/types";
 
@@ -21,8 +21,13 @@ export function paymentProvider(): PaymentProvider {
   return paddleProvider;
 }
 
-export function isPaymentsConfigured(): boolean {
-  return paymentProvider().configStatus() === "ENABLED";
+export async function isPaymentsConfigured(): Promise<boolean> {
+  try {
+    return (await paymentProvider().configStatus()) === "ENABLED";
+  } catch (err) {
+    console.error("[billing] config status failed:", err);
+    return false;
+  }
 }
 
 function orderNumber(): string {
@@ -52,12 +57,12 @@ export async function createPlanCheckout(
   planSlug: string,
   origin: string
 ): Promise<CheckoutSession> {
-  if (!isPaymentsConfigured()) throw new Error("PAYMENTS_NOT_CONFIGURED");
+  if (!(await isPaymentsConfigured())) throw new Error("PAYMENTS_NOT_CONFIGURED");
   const plan = await getPlanBySlug(planSlug);
   if (!plan || plan.active !== "yes") throw new Error("PLAN_NOT_AVAILABLE");
   const price = Number(plan.price);
   if (!Number.isFinite(price) || price <= 0) throw new Error("PLAN_PRICE_INVALID");
-  const priceId = PADDLE_PLAN_PRICES[plan.slug];
+  const priceId = (await getPaddleConfig()).planPrices[plan.slug];
   if (!priceId) throw new Error("PRICE_NOT_CONFIGURED");
 
   const orderId = await createPendingOrder({
@@ -84,7 +89,7 @@ export async function createCreditsCheckout(
   packId: string,
   origin: string
 ): Promise<CheckoutSession> {
-  if (!isPaymentsConfigured()) throw new Error("PAYMENTS_NOT_CONFIGURED");
+  if (!(await isPaymentsConfigured())) throw new Error("PAYMENTS_NOT_CONFIGURED");
   const pack = await getCreditPack(packId);
   if (!pack) throw new Error("PACK_NOT_AVAILABLE");
   if (!pack.paddle_price_id) throw new Error("PRICE_NOT_CONFIGURED");
@@ -231,7 +236,7 @@ async function fulfilRenewal(tx: ProviderTransaction): Promise<FulfilOutcome> {
   const userId = sub ? (typeof sub.user === "object" ? sub.user?._id : (sub.user as string)) || "" : "";
   if (!sub || !plan || !userId) return { status: "unknown_order", detail: `no local subscription ${tx.subscriptionId}` };
 
-  const priceId = PADDLE_PLAN_PRICES[plan.slug];
+  const priceId = (await getPaddleConfig()).planPrices[plan.slug];
   const item = tx.items.find((entry) => entry.priceId === priceId);
   if (!item) return { status: "mismatch", detail: "renewal price does not match plan" };
 
@@ -317,7 +322,7 @@ export async function cancelOwnSubscription(userId: string): Promise<{ endDate: 
 
   const providerSubId = current.provider_subscription_id || "";
   if (current.provider === "paddle" && providerSubId.startsWith("sub_")) {
-    if (!paddleApiConfigured()) throw new Error("CANCEL_NOT_CONFIGURED");
+    if (!(await paddleApiConfigured())) throw new Error("CANCEL_NOT_CONFIGURED");
     await paymentProvider().cancelSubscription(providerSubId);
   }
   const changed = await totalumSdk.crud.editRecordById("subscriptions", current._id, {
@@ -396,7 +401,7 @@ export async function getOwnOrderStatus(userId: string, orderId: string, transac
   if (order.status === "failed" || order.status === "cancelled") return { status: "failed", orderId, kind };
 
   // Webhook not here yet: re-read the transaction from the provider API (server-side verification).
-  if (transactionId && paddleApiConfigured()) {
+  if (transactionId && (await paddleApiConfigured())) {
     const tx = await paymentProvider().getTransaction(transactionId);
     if (tx.customData.order_id === orderId) return fulfilTransaction(tx);
   }

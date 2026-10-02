@@ -30,7 +30,7 @@ export async function GET(request: Request) {
 
     const [result, offersResult] = await Promise.all([
       totalumSdk.crud.query("services", { _filter: filter, _sort: { createdAt: "desc" }, _limit: 1000, category: true }),
-      totalumSdk.crud.query("affiliate_offers", { _limit: 2000, network: true }),
+      totalumSdk.crud.query("affiliate_offers", { _limit: 2000, network: { _omit: { postback_secret: true } } }),
     ]);
     if (result.errors || offersResult.errors) {
       console.error("[api/admin/services] list errors:", result.errors || offersResult.errors);

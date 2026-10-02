@@ -320,6 +320,10 @@ export interface AffiliateNetworkRecord {
   accent_color?: string;
   order_position?: number;
   active?: YesNo;
+  /** Documented tracking parameter of the network that carries our click id (subid, sub1, clickref…). */
+  subid_param?: string;
+  /** Server-only token required on incoming postbacks. Never sent to the browser. */
+  postback_secret?: string;
   createdAt?: string;
   updatedAt?: string;
 }

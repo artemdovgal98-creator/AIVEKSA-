@@ -52,7 +52,7 @@ export interface VerifiedWebhook {
 
 export interface PaymentProvider {
   readonly name: string;
-  configStatus(): ProviderConfigStatus;
+  configStatus(): Promise<ProviderConfigStatus>;
   createCheckout(request: CheckoutRequest): Promise<CheckoutSession>;
   getPaymentStatus(transactionId: string): Promise<string>;
   getTransaction(transactionId: string): Promise<ProviderTransaction>;

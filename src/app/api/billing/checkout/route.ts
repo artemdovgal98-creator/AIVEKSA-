@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: Request) {
   try {
-    if (!isPaymentsConfigured()) {
+    if (!(await isPaymentsConfigured())) {
       return NextResponse.json({ ok: false, error: "NOT_CONFIGURED", code: "NOT_CONFIGURED" }, { status: 503 });
     }
     const user = await getCurrentDbUser();

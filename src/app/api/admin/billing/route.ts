@@ -48,7 +48,7 @@ export async function GET(request: Request) {
       user: slim(row.user),
       plan: row.plan && typeof row.plan === "object" ? { _id: row.plan._id, name: row.plan.name } : null,
     }));
-    return NextResponse.json({ ok: true, data: { rows, paymentsConfigured: isPaymentsConfigured() } });
+    return NextResponse.json({ ok: true, data: { rows, paymentsConfigured: await isPaymentsConfigured() } });
   } catch (err: any) {
     console.error("[api/admin/billing] GET error:", err);
     return NextResponse.json({ ok: false, error: err?.message || "Unknown error" }, { status: 500 });

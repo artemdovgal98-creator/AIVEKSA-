@@ -43,3 +43,18 @@ Checkout is enabled when the client token + webhook secret are set.
 ## Home / Telegram
 - `HomeProfileBar` at the very top of `/` for signed-in users (avatar, name, PRO status, credits). Avatar link added to the mobile header.
 - Telegram bot webhook re-registered to `https://aivexa.totalum-project.com/api/telegram/webhook` (it pointed to an expired preview link).
+
+## Paddle settings from the admin panel (no keys required)
+- Admin → System Settings → **Payments · Paddle**: on/off, environment, client token, webhook secret, API key, AIVEXA PRO price ID.
+  Stored in `admin_settings` (`paddle_*` keys), write-only (API returns only "set / not set"), audited as `payments.settings.update` (names only).
+- `getPaddleConfig()` = admin settings → env fallback, cached 30 s. Without keys everything works; payment buttons show NOT CONFIGURED.
+
+# Stage 2 — Affiliate click tracking & postback conversions
+- `/go/*` → `trackedRedirect()` (`src/lib/go-redirect.ts`): click id `AIVEXA-<year>-XXXXXXXX`, first-party cookie `aivexa_sid`,
+  click record with click_id, session_id, referrer (no query), landing_page, device, country (only from geo header), network, offer, service, user.
+- The click id is appended ONLY under the network's documented parameter (`affiliate_networks.subid_param`, set by the admin). Empty = not passed; destination host never changes.
+- Postback: `GET|POST /api/postback/<network-slug>?token=…&click_id=…&transaction_id=…&payout=…&currency=…&status=…`
+  token = `affiliate_networks.postback_secret` (generated in Admin → Affiliate Marketplace → Networks, shown once).
+  Click must exist and belong to the network. Stored in `affiliate_conversions` (idempotent per network + transaction_id),
+  click `conversion_status` / `earned_amount` updated so EPC / CR / revenue stay real. Every postback is logged in `webhook_events` (`affiliate:<slug>`).
+- Network postback secrets are omitted from every API response (`network: { _omit: { postback_secret: true } }`).

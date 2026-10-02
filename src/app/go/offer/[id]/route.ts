@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { getOfferById, offerIsLive } from "@/lib/offers";
-import { recordClick } from "@/lib/click-tracking";
+import { trackedRedirect } from "@/lib/go-redirect";
 import { clientIp, rateLimit } from "@/lib/rate-limit";
 import { safeHttpUrl } from "@/lib/url-safety";
 
@@ -21,9 +21,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
     const serviceRef = offer.service;
     const serviceId = serviceRef && typeof serviceRef === "object" ? serviceRef._id : (serviceRef as string | undefined);
-    if (countable) await recordClick({ serviceId, offerId: offer._id, targetUrl: target, affiliate: true });
     console.log(`[go/offer] "${offer.offer_name}" → partner url`);
-    return NextResponse.redirect(target, 302);
+    return trackedRedirect(request, { target, serviceId, offer, countable });
   } catch (err) {
     console.error("[go/offer] failed for", id, err);
     return NextResponse.redirect(`${origin}/offers`, 302);

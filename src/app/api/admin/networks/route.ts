@@ -30,8 +30,11 @@ export async function GET() {
 
     const data = ((networks.data || []) as any[]).map((network) => {
       const own = rows.filter((offer) => String(offer.network || "") === network._id);
+      // The postback secret never leaves the server — only whether it is set.
+      const { postback_secret, ...safe } = network;
       return {
-        ...network,
+        ...safe,
+        postbackConfigured: Boolean(String(postback_secret || "").trim()),
         total: own.length,
         withUrl: own.filter((offer) => String(offer.affiliate_url || "").trim()).length,
         bound: own.filter((offer) => Boolean(offer.service)).length,

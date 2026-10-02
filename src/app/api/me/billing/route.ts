@@ -59,7 +59,7 @@ export async function GET() {
           description: tx.description,
           createdAt: tx.createdAt,
         })),
-        paymentsConfigured: isPaymentsConfigured(),
+        paymentsConfigured: await isPaymentsConfigured(),
       },
     });
   } catch (err: any) {

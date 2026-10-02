@@ -1,4 +1,5 @@
 import "server-only";
+import { totalumSdk } from "@/lib/totalum";
 import type {
   CheckoutRequest,
   CheckoutSession,
@@ -16,10 +17,13 @@ import type {
  * - Fulfilment: only from signed webhooks (`Paddle-Signature`, HMAC-SHA256),
  *   or from a transaction re-read through the Paddle API.
  *
- * Env (server-only):
+ * Configuration is entered by the owner in Admin → System Settings → Payments
+ * (stored server-side in `admin_settings`, secrets are never sent back to the
+ * browser). Env vars with the same names are an optional fallback:
  *   PADDLE_CLIENT_TOKEN   — client-side token (live_… / test_…), public by design
- *   PADDLE_WEBHOOK_SECRET — notification destination secret key (pdl_ntfset_…)
- *   PADDLE_API_KEY        — API key (pdl_live_apikey_… / pdl_sdbx_apikey_…), needed for cancel / refund / instant confirm
+ *   PADDLE_WEBHOOK_SECRET — notification destination secret key
+ *   PADDLE_API_KEY        — API key, needed for cancel / refund / instant confirm
+ * Nothing is required: without them payments simply show NOT CONFIGURED.
  */
 
 /** Catalog in Paddle (product pro_01m3mvbbmpznq55dpqza901y24). Ids are public identifiers, not secrets. */
@@ -38,16 +42,68 @@ export const PADDLE_PACK_PRICES: Record<string, string> = {
 
 export const PRICE_ID_PATTERN = /^pri_[a-z0-9]{20,40}$/;
 
-const env = (key: string) => (process.env[key] || "").trim();
+export const PADDLE_SETTING_KEYS = {
+  enabled: "paddle_enabled",
+  clientToken: "paddle_client_token",
+  webhookSecret: "paddle_webhook_secret",
+  apiKey: "paddle_api_key",
+  environment: "paddle_environment",
+  proPriceId: "paddle_price_pro",
+} as const;
 
-function environment(): "sandbox" | "production" {
-  const forced = env("PADDLE_ENVIRONMENT").toLowerCase();
-  if (forced === "sandbox" || forced === "production") return forced;
-  if (env("PADDLE_CLIENT_TOKEN").startsWith("test_") || env("PADDLE_API_KEY").includes("_sdbx_")) return "sandbox";
-  return "production";
+export interface PaddleConfig {
+  enabled: boolean;
+  clientToken: string;
+  webhookSecret: string;
+  apiKey: string;
+  environment: "sandbox" | "production";
+  planPrices: Record<string, string>;
 }
 
-const apiBase = () => (environment() === "sandbox" ? "https://sandbox-api.paddle.com" : "https://api.paddle.com");
+const env = (key: string) => (process.env[key] || "").trim();
+
+let cached: { at: number; config: PaddleConfig } | null = null;
+const CACHE_MS = 30_000;
+
+export function invalidatePaddleConfig() {
+  cached = null;
+}
+
+/** Admin settings first, env fallback. Cached briefly so the catalog never pays for it. */
+export async function getPaddleConfig(): Promise<PaddleConfig> {
+  if (cached && Date.now() - cached.at < CACHE_MS) return cached.config;
+  const map = new Map<string, string>();
+  const result = await totalumSdk.crud.query("admin_settings", {
+    _filter: { setting_key: { in: Object.values(PADDLE_SETTING_KEYS) } },
+    _limit: 20,
+  });
+  if (result.errors) console.error("[paddle] settings read failed, using env only:", result.errors);
+  for (const row of (result.data || []) as any[]) map.set(row.setting_key, String(row.setting_value ?? "").trim());
+
+  const clientToken = map.get(PADDLE_SETTING_KEYS.clientToken) || env("PADDLE_CLIENT_TOKEN");
+  const apiKey = map.get(PADDLE_SETTING_KEYS.apiKey) || env("PADDLE_API_KEY");
+  const forced = (map.get(PADDLE_SETTING_KEYS.environment) || env("PADDLE_ENVIRONMENT")).toLowerCase();
+  const environment: "sandbox" | "production" =
+    forced === "sandbox" || forced === "production"
+      ? forced
+      : clientToken.startsWith("test_") || apiKey.includes("_sdbx_")
+        ? "sandbox"
+        : "production";
+  const proPrice = map.get(PADDLE_SETTING_KEYS.proPriceId) || "";
+
+  const config: PaddleConfig = {
+    enabled: map.get(PADDLE_SETTING_KEYS.enabled) !== "no",
+    clientToken,
+    webhookSecret: map.get(PADDLE_SETTING_KEYS.webhookSecret) || env("PADDLE_WEBHOOK_SECRET"),
+    apiKey,
+    environment,
+    planPrices: { ...PADDLE_PLAN_PRICES, ...(PRICE_ID_PATTERN.test(proPrice) ? { pro: proPrice } : {}) },
+  };
+  cached = { at: Date.now(), config };
+  return config;
+}
+
+const apiBase = (config: PaddleConfig) => (config.environment === "sandbox" ? "https://sandbox-api.paddle.com" : "https://api.paddle.com");
 
 const toHex = (buffer: ArrayBuffer) => Array.from(new Uint8Array(buffer), (b) => b.toString(16).padStart(2, "0")).join("");
 
@@ -60,14 +116,15 @@ function safeEqual(a: string, b: string): boolean {
 
 const WEBHOOK_TOLERANCE_SECONDS = 300;
 
-export function paddleApiConfigured(): boolean {
-  return env("PADDLE_API_KEY").length > 0;
+export async function paddleApiConfigured(): Promise<boolean> {
+  return (await getPaddleConfig()).apiKey.length > 0;
 }
 
 async function paddleApi<T = any>(path: string, init?: { method?: string; body?: unknown }): Promise<T> {
-  const key = env("PADDLE_API_KEY");
+  const config = await getPaddleConfig();
+  const key = config.apiKey;
   if (!key) throw new Error("PADDLE_API_NOT_CONFIGURED");
-  const response = await fetch(`${apiBase()}${path}`, {
+  const response = await fetch(`${apiBase(config)}${path}`, {
     method: init?.method || "GET",
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: init?.body ? JSON.stringify(init.body) : undefined,
@@ -104,11 +161,12 @@ export function normalizePaddleTransaction(raw: any): ProviderTransaction {
 export const paddleProvider: PaymentProvider = {
   name: "paddle",
 
-  configStatus(): ProviderConfigStatus {
-    const token = env("PADDLE_CLIENT_TOKEN");
-    const secret = env("PADDLE_WEBHOOK_SECRET");
-    const apiKey = env("PADDLE_API_KEY");
-    if (!token && !secret && !apiKey) return "NOT CONFIGURED";
+  async configStatus(): Promise<ProviderConfigStatus> {
+    const config = await getPaddleConfig();
+    const token = config.clientToken;
+    const secret = config.webhookSecret;
+    const apiKey = config.apiKey;
+    if (!config.enabled) return "DISABLED";
     if (!token || !secret) return "NOT CONFIGURED";
     if (!/^(live|test)_[A-Za-z0-9]+$/.test(token)) return "INVALID CONFIGURATION";
     if (apiKey && !apiKey.startsWith("pdl_")) return "INVALID CONFIGURATION";
@@ -117,12 +175,13 @@ export const paddleProvider: PaymentProvider = {
 
   async createCheckout(request: CheckoutRequest): Promise<CheckoutSession> {
     if (!PRICE_ID_PATTERN.test(request.priceId)) throw new Error("PRICE_NOT_CONFIGURED");
+    const config = await getPaddleConfig();
     return {
       provider: "paddle",
       orderId: request.orderId,
       priceId: request.priceId,
-      clientToken: env("PADDLE_CLIENT_TOKEN"),
-      environment: environment(),
+      clientToken: config.clientToken,
+      environment: config.environment,
       customData: { order_id: request.orderId, user_id: request.userId },
       email: request.email,
       successUrl: request.successUrl,
@@ -140,7 +199,7 @@ export const paddleProvider: PaymentProvider = {
   },
 
   async verifyWebhook(rawBody: string, headers: Headers): Promise<VerifiedWebhook | null> {
-    const secret = env("PADDLE_WEBHOOK_SECRET");
+    const secret = (await getPaddleConfig()).webhookSecret;
     const header = headers.get("paddle-signature") || "";
     if (!secret || !header) return null;
 

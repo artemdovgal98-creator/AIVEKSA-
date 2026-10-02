@@ -19,7 +19,7 @@ export async function GET() {
       features: String(plan.features || "").split("\n").map((line) => line.trim()).filter(Boolean),
       ai_credits: Number(plan.ai_credits) || 0,
     }));
-    return NextResponse.json({ ok: true, data: { plans: data, paymentsConfigured: isPaymentsConfigured() } });
+    return NextResponse.json({ ok: true, data: { plans: data, paymentsConfigured: await isPaymentsConfigured() } });
   } catch (err: any) {
     console.error("[api/plans] error:", err);
     return NextResponse.json({ ok: false, error: err?.message || "Unknown error" }, { status: 500 });
