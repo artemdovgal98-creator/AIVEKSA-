@@ -58,3 +58,10 @@ Checkout is enabled when the client token + webhook secret are set.
   Click must exist and belong to the network. Stored in `affiliate_conversions` (idempotent per network + transaction_id),
   click `conversion_status` / `earned_amount` updated so EPC / CR / revenue stay real. Every postback is logged in `webhook_events` (`affiliate:<slug>`).
 - Network postback secrets are omitted from every API response (`network: { _omit: { postback_secret: true } }`).
+
+## Site code (verification tags & widgets)
+- Admin → System Settings → "Site code" (`SiteCodeCard`, API `/api/admin/site-code`).
+- Stored in admin_settings: `site_code_head` (rendered in `<head>`) and `site_code_body` (rendered before `</body>`), cached 30s.
+- Only `<meta>` and `<script>` tags are parsed and rendered (`src/lib/site-code.ts`, `SiteCodeTags`); inline `on*` attributes are dropped.
+- Intended for the Monetag / Mitgo verification meta tags and the GetChatAds widget script.
+- The home-page profile card (HomeProfileBar) was removed; the profile is reachable from the header menu.

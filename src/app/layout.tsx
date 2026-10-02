@@ -15,6 +15,8 @@ import { BottomNav } from "@/components/site/BottomNav";
 import { Toaster } from "@/components/ui/sonner";
 import { FavoritesProvider } from "@/components/site/FavoritesProvider";
 import { TelegramMiniApp } from "@/components/site/TelegramMiniApp";
+import { SiteCodeTags } from "@/components/site/SiteCodeTags";
+import { getSiteCode, parseSiteCode } from "@/lib/site-code";
 
 const unbounded = Unbounded({
   variable: "--font-unbounded",
@@ -77,9 +79,17 @@ export const revalidate = 0;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { lang } = await getServerDict();
+  // Admin-managed verification tags / widget scripts (Admin → System Settings → Site code).
+  const siteCode = await getSiteCode().catch((err) => {
+    console.error("[layout] site code unavailable:", err);
+    return { head: "", body: "" };
+  });
 
   return (
     <html lang={lang} className="dark">
+      <head>
+        <SiteCodeTags tags={parseSiteCode(siteCode.head)} scope="head" />
+      </head>
       <body className={`${unbounded.variable} ${manrope.variable} antialiased`}>
         <GlobalErrorCatcher />
         <ScriptExecutor />
@@ -99,6 +109,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Toaster position="top-center" richColors />
           </FavoritesProvider>
         </LanguageProvider>
+        <SiteCodeTags tags={parseSiteCode(siteCode.body)} scope="body" />
       </body>
     </html>
   );
