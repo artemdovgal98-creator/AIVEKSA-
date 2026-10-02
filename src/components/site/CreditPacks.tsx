@@ -5,6 +5,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Coins, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { openPaddleCheckout, type PaddleCheckoutData } from "@/lib/paddle-client";
 import { useLang } from "@/lib/i18n/context";
 import { publicDict } from "@/lib/i18n/public-dict";
 
@@ -35,15 +36,21 @@ export function CreditPacks({
 
   const buy = async (id: string) => {
     setBusy(id);
-    const response = await api.post<{ url: string }>("/api/billing/checkout", { pack: id });
-    if (!response.ok || !response.data?.url) {
+    const response = await api.post<PaddleCheckoutData>("/api/billing/checkout", { pack: id });
+    if (!response.ok || !response.data?.priceId) {
       setBusy(null);
       console.error("[credit-packs] checkout failed:", response.error);
       toast.error(response.error === "NOT_CONFIGURED" ? p.notConfigured : String(response.error || "Error"));
       return;
     }
-    console.log("[credit-packs] redirecting to checkout for", id);
-    window.location.href = response.data.url;
+    console.log("[credit-packs] opening Paddle checkout for", id);
+    try {
+      await openPaddleCheckout(response.data, lang, () => setBusy(null));
+    } catch (err) {
+      console.error("[credit-packs] Paddle.js failed:", err);
+      toast.error(String((err as Error)?.message || "Checkout error"));
+    }
+    setBusy(null);
   };
 
   const buttonClass =

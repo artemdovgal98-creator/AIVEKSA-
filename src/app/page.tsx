@@ -7,6 +7,7 @@ import { SearchBox } from "@/components/site/SearchBox";
 import { HeroExamples } from "@/components/site/HeroExamples";
 import { SectionHeading } from "@/components/site/SectionHeading";
 import { AdBanner } from "@/components/site/AdBanner";
+import { HomeProfileBar } from "@/components/site/HomeProfileBar";
 import { OwnerContacts } from "@/components/site/OwnerContacts";
 import { RadarStrip } from "@/components/site/RadarFeed";
 import { TelegramButton } from "@/components/site/TelegramButton";
@@ -71,6 +72,9 @@ export default async function Home() {
   return (
     <div className="relative">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
+      {/* ---------------- PROFILE (very top, signed-in users) ---------------- */}
+      <HomeProfileBar text={p} />
 
       {/* ---------------- HERO ---------------- */}
       <section className="relative overflow-hidden">

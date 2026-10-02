@@ -5,7 +5,17 @@ import { api } from "@/lib/api";
 
 export interface SystemStatus {
   appUrl: string | null;
-  stripe: { configured: boolean; webhookSecret: boolean; webhookUrl: string | null; events: string[] };
+  payments: {
+    provider: string;
+    status: "ENABLED" | "DISABLED" | "NOT CONFIGURED" | "INVALID CONFIGURATION";
+    configured: boolean;
+    clientToken: boolean;
+    webhookSecret: boolean;
+    apiKey: boolean;
+    webhookUrl: string | null;
+    events: string[];
+  };
+  recentEvents: { _id: string; provider?: string; event_type?: string; status?: string; result?: string; error?: string; occurred_at?: string; createdAt?: string }[];
   telegram: { configured: boolean; username: string | null; webhookUrl: string | null };
   zernio: { configured: boolean };
 }

@@ -5,11 +5,12 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Crown, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { openPaddleCheckout, type PaddleCheckoutData } from "@/lib/paddle-client";
 import { useLang } from "@/lib/i18n/context";
 import { publicDict } from "@/lib/i18n/public-dict";
 
 /**
- * Starts a Stripe Checkout for a plan. Only the plan slug is sent — the price
+ * Opens the Paddle checkout for a plan. Only the plan slug is sent — the price
  * is always read from the database on the server.
  */
 export function ProCheckoutButton({
@@ -63,15 +64,21 @@ export function ProCheckoutButton({
 
   const start = async () => {
     setBusy(true);
-    const response = await api.post<{ url: string }>("/api/billing/checkout", { plan: planSlug });
-    if (!response.ok || !response.data?.url) {
+    const response = await api.post<PaddleCheckoutData>("/api/billing/checkout", { plan: planSlug });
+    if (!response.ok || !response.data?.priceId) {
       setBusy(false);
       console.error("[pro] checkout failed:", response.error);
       toast.error(response.error === "NOT_CONFIGURED" ? p.notConfigured : String(response.error || "Error"));
       return;
     }
-    console.log("[pro] redirecting to checkout");
-    window.location.href = response.data.url;
+    console.log("[pro] opening Paddle checkout");
+    try {
+      await openPaddleCheckout(response.data, lang, () => setBusy(false));
+    } catch (err) {
+      console.error("[pro] Paddle.js failed:", err);
+      toast.error(String((err as Error)?.message || "Checkout error"));
+    }
+    setBusy(false);
   };
 
   return (

@@ -6,8 +6,9 @@ import { clientIp, rateLimit } from "@/lib/rate-limit";
 export const dynamic = "force-dynamic";
 
 /**
- * POST { plan: "pro" } or { pack: "starter" } → Stripe Checkout URL. Only the
- * slug / pack id is accepted from the browser; prices come from the server.
+ * POST { plan: "pro" } or { pack: "starter" } → pending order + Paddle checkout
+ * data (server-chosen price id). Only the slug / pack id is accepted from the
+ * browser; prices and price ids come from the server.
  */
 export async function POST(request: Request) {
   try {
@@ -27,8 +28,8 @@ export async function POST(request: Request) {
     if (!/^[a-z0-9-]{1,40}$/.test(target)) return NextResponse.json({ ok: false, error: "Invalid plan" }, { status: 400 });
 
     const origin = (process.env.NEXT_PUBLIC_APP_URL || new URL(request.url).origin).replace(/\/$/, "");
-    const { url, orderId } = pack ? await createCreditsCheckout(user, pack, origin) : await createPlanCheckout(user, slug, origin);
-    return NextResponse.json({ ok: true, data: { url, orderId } });
+    const checkout = pack ? await createCreditsCheckout(user, pack, origin) : await createPlanCheckout(user, slug, origin);
+    return NextResponse.json({ ok: true, data: checkout });
   } catch (err: any) {
     const message = err?.message || "Unknown error";
     console.error("[api/billing/checkout] error:", err);

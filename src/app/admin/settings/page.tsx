@@ -43,7 +43,7 @@ export default function AdminSettingsPage() {
             <span className="text-foreground/65">{d.appUrl}</span>
             <code className="text-xs text-foreground/80">{status?.appUrl || "N/A"}</code>
           </li>
-          <li className="flex items-center justify-between"><span className="text-foreground/65">Stripe</span>{flag(status?.stripe.configured)}</li>
+          <li className="flex items-center justify-between"><span className="text-foreground/65">Paddle</span>{flag(status?.payments.configured)}</li>
           <li className="flex items-center justify-between"><span className="text-foreground/65">Telegram</span>{flag(status?.telegram.configured)}</li>
           <li className="flex items-center justify-between"><span className="text-foreground/65">Zernio</span>{flag(status?.zernio.configured)}</li>
         </ul>

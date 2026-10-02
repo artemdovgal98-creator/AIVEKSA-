@@ -12,6 +12,7 @@ interface PackRow {
   price: number;
   currency: "usd" | "eur";
   active: boolean;
+  paddle_price_id: string;
 }
 
 const field = "w-full rounded-lg border border-white/10 bg-white/5 px-2.5 py-1.5 text-sm text-white outline-none focus:border-[color:var(--neon-cyan)]/60";
@@ -86,13 +87,20 @@ export function CreditPacksEditor() {
               >
                 <Trash2 className="h-4 w-4" />
               </button>
+              <input
+                className={`${field} col-span-2 font-mono text-xs sm:col-span-6`}
+                value={pack.paddle_price_id || ""}
+                onChange={(e) => update(index, { paddle_price_id: e.target.value.trim() })}
+                placeholder="Paddle price ID — pri_…"
+                aria-label="Paddle price ID"
+              />
             </div>
           ))}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-2">
             <button
               type="button"
               className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-[color:var(--neon-cyan)] hover:bg-white/5"
-              onClick={() => setPacks((current) => [...(current || []), { id: "", credits: 100, price: 9.99, currency: "usd", active: true }])}
+              onClick={() => setPacks((current) => [...(current || []), { id: "", credits: 100, price: 9.99, currency: "usd", active: true, paddle_price_id: "" }])}
             >
               <Plus className="h-3.5 w-3.5" />
               {d.addPack}

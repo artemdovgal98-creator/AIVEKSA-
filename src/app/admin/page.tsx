@@ -193,7 +193,7 @@ export default function AdminDashboardPage() {
       <section className="glass-strong animate-fade-up rounded-2xl p-5">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-display text-base font-bold text-white">{dd.billing}</h2>
-          {!stats.paymentsConfigured && <NotConfigured label={`Stripe · ${ad.common.notConfigured}`} />}
+          {!stats.paymentsConfigured && <NotConfigured label={`Paddle · ${ad.common.notConfigured}`} />}
         </div>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           {billingCards.map((card) => {

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Clock, Loader2, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
+import { paddleTxnKey } from "@/lib/paddle-client";
 import { useLang } from "@/lib/i18n/context";
 import { publicDict } from "@/lib/i18n/public-dict";
 
@@ -12,29 +13,35 @@ function SuccessInner() {
   const { lang } = useLang();
   const p = publicDict(lang).pro;
   const params = useSearchParams();
-  const sessionId = params.get("session_id") || "";
+  const orderId = params.get("order") || "";
   const [status, setStatus] = useState<string>("checking");
-  const [kind, setKind] = useState<string>("plan");
+  const [kind, setKind] = useState<string>(params.get("kind") === "credits" ? "credits" : "plan");
 
   useEffect(() => {
-    if (!sessionId) {
+    if (!orderId) {
       setStatus("failed");
       return;
     }
     let attempts = 0;
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
-      // The server re-reads the session from Stripe; the browser is never trusted.
-      const response = await api.post<{ status: string; kind?: string }>("/api/billing/confirm", { session_id: sessionId });
+      // Only the server decides: it waits for the signed Paddle webhook (or re-reads the transaction via the API).
+      let transactionId = "";
+      try {
+        transactionId = sessionStorage.getItem(paddleTxnKey(orderId)) || "";
+      } catch {
+        /* storage unavailable */
+      }
+      const response = await api.post<{ status: string; kind?: string }>("/api/billing/confirm", { order_id: orderId, transaction_id: transactionId });
       if (response.ok && response.data?.kind) setKind(response.data.kind);
       const next = response.ok ? response.data?.status || "pending" : "failed";
       console.log("[pro/success] payment status:", next);
       setStatus(next);
-      if (next === "pending" && attempts++ < 10) timer = setTimeout(poll, 3000);
+      if (next === "pending" && attempts++ < 20) timer = setTimeout(poll, 3000);
     };
     poll();
     return () => clearTimeout(timer);
-  }, [sessionId]);
+  }, [orderId]);
 
   const view =
     status === "paid"

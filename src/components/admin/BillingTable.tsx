@@ -50,7 +50,7 @@ export function BillingTable({ type }: { type: BillingType }) {
     <div>
       <PageHeader
         title={title}
-        actions={type !== "transactions" && !configured ? <NotConfigured label={`Stripe · ${a.common.notConfigured}`} /> : undefined}
+        actions={type !== "transactions" && !configured ? <NotConfigured label={`Paddle · ${a.common.notConfigured}`} /> : undefined}
       />
       <div className="mb-4 flex flex-wrap gap-1.5">
         {["", ...statuses].map((value) => (

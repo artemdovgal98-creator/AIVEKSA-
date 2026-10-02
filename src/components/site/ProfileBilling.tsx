@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Coins, Crown, Loader2, Receipt } from "lucide-react";
+import { Coins, Crown, Loader2, Receipt, XCircle } from "lucide-react";
+import { toast } from "sonner";
 import { api } from "@/lib/api";
 import { useLang } from "@/lib/i18n/context";
 import { publicDict } from "@/lib/i18n/public-dict";
@@ -10,7 +11,15 @@ import { CURRENCY_SYMBOLS } from "@/lib/money";
 
 interface BillingData {
   plan: { name: string; slug: string } | null;
-  subscription: { status?: string; start_date?: string; end_date?: string; plan_name: string | null } | null;
+  subscription: {
+    status?: string;
+    start_date?: string;
+    end_date?: string;
+    plan_name: string | null;
+    auto_renew?: string;
+    cancelled_at?: string | null;
+    cancellable?: boolean;
+  } | null;
   credits: number;
   orders: { _id: string; order_number?: string; amount?: number; currency?: string; status?: string; description?: string; createdAt?: string; paid_at?: string }[];
   transactions: { _id: string; amount?: number; type?: string; balance_after?: number; description?: string; createdAt?: string }[];
@@ -37,8 +46,9 @@ export function ProfileBilling() {
   const b = publicDict(lang).billing;
   const [data, setData] = useState<BillingData | null>(null);
   const [error, setError] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
 
-  useEffect(() => {
+  const load = () =>
     api.get<BillingData>("/api/me/billing").then((response) => {
       if (!response.ok) {
         console.error("[profile] billing load failed:", response.error);
@@ -47,7 +57,24 @@ export function ProfileBilling() {
       }
       setData(response.data || null);
     });
+
+  useEffect(() => {
+    load();
   }, []);
+
+  const cancel = async () => {
+    if (!window.confirm(b.cancelConfirm)) return;
+    setCancelling(true);
+    const response = await api.post<{ endDate: string | null }>("/api/me/subscription/cancel", {});
+    setCancelling(false);
+    if (!response.ok) {
+      console.error("[profile] cancel failed:", response.error);
+      toast.error(response.error === "CANCEL_NOT_CONFIGURED" ? b.cancelNotConfigured : String(response.error || "Error"));
+      return;
+    }
+    toast.success(`${b.cancelled} ${response.data?.endDate ? new Date(response.data.endDate).toLocaleDateString() : ""}`);
+    load();
+  };
 
   if (error) return null;
   if (!data) {
@@ -97,6 +124,22 @@ export function ProfileBilling() {
           <Crown className="h-4 w-4" />
           {data.plan ? b.manage : b.upgrade}
         </Link>
+        {data.subscription?.cancellable && (
+          <button
+            type="button"
+            onClick={cancel}
+            disabled={cancelling}
+            className="ml-2 mt-4 inline-flex items-center gap-2 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-2.5 text-sm font-bold text-rose-200 transition-colors hover:bg-rose-500/20 disabled:opacity-60"
+          >
+            {cancelling ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+            {b.cancel}
+          </button>
+        )}
+        {data.plan && data.subscription?.auto_renew === "no" && data.subscription?.cancelled_at && (
+          <p className="mt-3 text-xs font-semibold text-amber-300">
+            {b.cancelled} {date(data.subscription.end_date)}
+          </p>
+        )}
 
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
           <div>

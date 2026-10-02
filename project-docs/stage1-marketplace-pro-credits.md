@@ -10,7 +10,7 @@ Applied on top of the existing production project (no data removed, all URLs kep
   Balance never negative, every change is logged, `withCredits()` refunds on failure.
 - The Affiliate Marketplace is **not** a paid tier.
 
-## Billing (Stripe)
+## Billing (Stripe — replaced by Paddle in Stage 2, see stage2-paddle-payments.md)
 - `POST /api/billing/checkout {plan}` → pending `orders` record + Stripe Checkout (price read from the DB).
   Returns `NOT_CONFIGURED` (503) while `STRIPE_SECRET_KEY` is missing.
 - Fulfilment `fulfilCheckoutSession()` (`src/lib/billing.ts`) re-reads the session from Stripe, checks amount/currency,

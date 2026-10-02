@@ -30,7 +30,15 @@ export async function GET() {
       data: {
         plan: subscription && plan ? { name: plan.name, slug: plan.slug } : null,
         subscription: shown
-          ? { status: shown.status, start_date: shown.start_date, end_date: shown.end_date, plan_name: plan?.name || null }
+          ? {
+              status: shown.status,
+              start_date: shown.start_date,
+              end_date: shown.end_date,
+              plan_name: plan?.name || null,
+              auto_renew: shown.auto_renew || "no",
+              cancelled_at: shown.cancelled_at || null,
+              cancellable: Boolean(subscription) && shown.auto_renew === "yes",
+            }
           : null,
         credits: balance,
         orders: ((orders.data || []) as unknown as OrderRecord[]).map((order) => ({

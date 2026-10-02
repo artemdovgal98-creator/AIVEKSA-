@@ -422,6 +422,8 @@ export interface SubscriptionRecord {
   end_date?: string;
   provider?: string;
   provider_subscription_id?: string;
+  auto_renew?: YesNo;
+  cancelled_at?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -439,8 +441,10 @@ export interface OrderRecord {
   status?: OrderStatus;
   provider?: string;
   provider_payment_id?: string;
+  price_id?: string;
   description?: string;
   paid_at?: string;
+  refunded_at?: string;
   createdAt?: string;
   updatedAt?: string;
 }

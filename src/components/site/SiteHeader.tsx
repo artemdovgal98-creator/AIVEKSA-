@@ -130,6 +130,20 @@ export function SiteHeader() {
             </div>
           )}
 
+          {session?.user && (
+            <Link
+              href="/profile"
+              aria-label={t.nav.profile}
+              className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full border border-white/15 bg-gradient-to-br from-[#4c6fff] to-[#a855f7] md:hidden"
+            >
+              {session.user.image ? (
+                <img src={session.user.image} alt={session.user.name || t.nav.profile} className="h-full w-full object-cover" />
+              ) : (
+                <User className="h-5 w-5 text-white" />
+              )}
+            </Link>
+          )}
+
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger asChild>
               <button
