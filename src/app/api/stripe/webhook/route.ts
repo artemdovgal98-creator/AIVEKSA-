@@ -18,6 +18,7 @@ import { NextResponse } from "next/server";
 import { stripe, STRIPE_WEBHOOK_SECRET, cryptoProvider } from "@/lib/stripe";
 import Stripe from "stripe";
 import { totalumSdk } from "@/lib/totalum";
+import { fulfilCheckoutSession } from "@/lib/billing";
 
 async function handleCustomerCreated(customer: Stripe.Customer) {
   console.log("Customer created:", customer.id);
@@ -108,6 +109,18 @@ export async function POST(req: Request) {
 
     // Handle the event
     switch (event.type) {
+      // AIVEXA PRO — the session is re-read from the Stripe API inside
+      // fulfilCheckoutSession, so the event body itself is never trusted.
+      case "checkout.session.completed":
+      case "checkout.session.async_payment_succeeded":
+      case "checkout.session.async_payment_failed":
+      case "checkout.session.expired": {
+        const session = event.data.object as Stripe.Checkout.Session;
+        const outcome = await fulfilCheckoutSession(session.id);
+        console.log(`[webhook] ${event.type} ${session.id} →`, outcome);
+        break;
+      }
+
       case "customer.created":
         await handleCustomerCreated(event.data.object as Stripe.Customer);
         break;

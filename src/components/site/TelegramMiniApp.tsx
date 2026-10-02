@@ -23,6 +23,7 @@ export function TelegramMiniApp() {
         window.location.hash.includes("tgWebAppData"));
 
     if (!inTelegram) return;
+    let removeHaptics: (() => void) | null = null;
 
     const setup = () => {
       const app = (window as any).Telegram?.WebApp;
@@ -37,6 +38,15 @@ export function TelegramMiniApp() {
         app.setBackgroundColor?.("#0b0b16");
         app.disableVerticalSwipes?.();
         document.documentElement.classList.add("tg-mini-app");
+        // Native feel: a light haptic tick on every tap of a link or button.
+        if (app.HapticFeedback && !removeHaptics) {
+          const onTap = (event: Event) => {
+            const target = event.target as HTMLElement | null;
+            if (target?.closest("a, button, [role='button']")) app.HapticFeedback.impactOccurred("light");
+          };
+          document.addEventListener("click", onTap, { passive: true });
+          removeHaptics = () => document.removeEventListener("click", onTap);
+        }
         console.log("[mini-app] ready, version", app.version, "platform", app.platform);
       } catch (err) {
         console.error("[mini-app] initialisation failed:", err);
@@ -45,7 +55,7 @@ export function TelegramMiniApp() {
 
     if ((window as any).Telegram?.WebApp) {
       setup();
-      return;
+      return () => removeHaptics?.();
     }
 
     const script = document.createElement("script");
@@ -54,6 +64,7 @@ export function TelegramMiniApp() {
     script.onload = setup;
     script.onerror = () => console.error("[mini-app] failed to load telegram-web-app.js");
     document.head.appendChild(script);
+    return () => removeHaptics?.();
   }, []);
 
   return null;

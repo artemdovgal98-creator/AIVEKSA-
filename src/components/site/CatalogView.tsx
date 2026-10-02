@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useLang } from "@/lib/i18n/context";
 import { api } from "@/lib/api";
 import { categoryName } from "@/lib/localize";
+import { publicDict } from "@/lib/i18n/public-dict";
 import { ServiceCard } from "./ServiceCard";
 import { SearchBox } from "./SearchBox";
 import { Button } from "@/components/ui/button";
@@ -18,8 +19,10 @@ export function CatalogView({
   initialCategory = "",
   initialFilter = "all",
   initialSort = "popular",
+  initialScope = "all",
   lockedCategory = false,
 }: {
+  initialScope?: string;
   initialQuery?: string;
   initialCategory?: string;
   initialFilter?: string;
@@ -33,6 +36,9 @@ export function CatalogView({
   const [category, setCategory] = useState(initialCategory);
   const [filter, setFilter] = useState(initialFilter);
   const [sort, setSort] = useState(initialSort);
+  // ALL / MAIN AI / AFFILIATE — the partner scope never replaces the free catalog.
+  const [scope, setScope] = useState(["main", "affiliate"].includes(initialScope) ? initialScope : "all");
+  const ps = publicDict(lang).scope;
   const [categories, setCategories] = useState<CategoryRecord[]>([]);
   const [items, setItems] = useState<ServiceRecord[]>([]);
   const [total, setTotal] = useState(0);
@@ -75,11 +81,12 @@ export function CatalogView({
       if (category) params.set("category", category);
       if (filter && filter !== "all") params.set("filter", filter);
       if (sort) params.set("sort", sort);
+      if (scope !== "all") params.set("scope", scope);
       params.set("limit", String(PAGE_SIZE));
       params.set("offset", String(nextOffset));
       return `/api/services?${params.toString()}`;
     },
-    [query, category, filter, sort]
+    [query, category, filter, sort, scope]
   );
 
   useEffect(() => {
@@ -115,9 +122,10 @@ export function CatalogView({
     if (category) params.set("category", category);
     if (filter && filter !== "all") params.set("filter", filter);
     if (sort !== "popular") params.set("sort", sort);
+    if (scope !== "all") params.set("scope", scope);
     const search = params.toString();
     window.history.replaceState(null, "", search ? `/catalog?${search}` : "/catalog");
-  }, [query, category, filter, sort, lockedCategory]);
+  }, [query, category, filter, sort, scope, lockedCategory]);
 
   const loadMore = async () => {
     setLoadingMore(true);
@@ -137,6 +145,7 @@ export function CatalogView({
     if (!lockedCategory) setCategory("");
     setFilter("all");
     setSort("popular");
+    setScope("all");
   };
 
   const activeFilters = (query ? 1 : 0) + (filter !== "all" ? 1 : 0) + (!lockedCategory && category ? 1 : 0);
@@ -144,6 +153,24 @@ export function CatalogView({
   return (
     <div className="space-y-5">
       <SearchBox size="md" initialValue={initialQuery} onSubmitOverride={(value) => setQuery(value)} />
+
+      {/* Scope: ALL / MAIN AI / AFFILIATE */}
+      <div className="glass inline-flex max-w-full gap-1 overflow-x-auto rounded-xl p-1" role="tablist">
+        {(["all", "main", "affiliate"] as const).map((id) => (
+          <button
+            key={id}
+            type="button"
+            role="tab"
+            aria-selected={scope === id}
+            onClick={() => setScope(id)}
+            className={`shrink-0 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-all ${
+              scope === id ? "bg-gradient-to-r from-[#4c6fff] to-[#a855f7] text-white" : "text-foreground/65 hover:text-white"
+            }`}
+          >
+            {ps[id]}
+          </button>
+        ))}
+      </div>
 
       {/* Filter bar */}
       <div className="flex min-w-0 items-center gap-2">

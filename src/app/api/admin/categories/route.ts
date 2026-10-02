@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { totalumSdk } from "@/lib/totalum";
 import { buildCategoryPayload } from "@/lib/admin-payload";
+import { logAdminAction } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +24,18 @@ export async function GET(request: Request) {
       
     });
     if (result.errors) console.error("[api/admin/categories] list errors:", result.errors);
-    return NextResponse.json({ ok: true, data: result.data || [], total: (result.data || []).length });
+
+    // How many services reference each category (shown before delete / reassign).
+    const grouped = await totalumSdk.crud.query("services", { _groupBy: "category", _aggregate: { _count: true }, _limit: 1000 });
+    if (grouped.errors) console.error("[api/admin/categories] service counts failed:", grouped.errors);
+    const counts = new Map<string, number>();
+    for (const row of (grouped.data || []) as any[]) {
+      const ref = row._group?.category;
+      const id = (ref && typeof ref === "object" ? ref._id : ref) || "";
+      if (id) counts.set(id, Number(row._aggregate?._count) || 0);
+    }
+    const data = ((result.data || []) as any[]).map((category) => ({ ...category, services_count: counts.get(category._id) || 0 }));
+    return NextResponse.json({ ok: true, data, total: data.length });
   } catch (err: any) {
     console.error("[api/admin/categories] GET error:", err);
     return NextResponse.json({ ok: false, error: err?.message || "Unknown error" }, { status: 500 });
@@ -53,6 +65,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: false, error: created.errors }, { status: 400 });
     }
     console.log("[api/admin/categories] created", payload.slug, "by", admin._id);
+    await logAdminAction(admin._id, "category.create", "categories", String((created.data as any)?.insertedId || ""), { slug: payload.slug });
     return NextResponse.json({ ok: true, data: created.data });
   } catch (err: any) {
     console.error("[api/admin/categories] POST error:", err);

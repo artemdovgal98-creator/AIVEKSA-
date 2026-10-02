@@ -1,85 +1,68 @@
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
 import { getServiceBySlug } from "@/lib/catalog";
-import { getSessionUser } from "@/lib/admin-auth";
-import { totalumSdk } from "@/lib/totalum";
-import { resolveTargetUrl } from "@/lib/localize";
-import { getServiceOfferUrl } from "@/lib/offers";
-import { LANG_COOKIE } from "@/lib/i18n/server";
-import { cookies } from "next/headers";
+import { getOfferBySlug, getPrimaryLiveOffer, offerIsLive } from "@/lib/offers";
+import { recordClick } from "@/lib/click-tracking";
+import { clientIp, rateLimit } from "@/lib/rate-limit";
+import { safeHttpUrl } from "@/lib/url-safety";
 
 export const dynamic = "force-dynamic";
 
-function detectDevice(userAgent: string): "mobile" | "tablet" | "desktop" {
-  const ua = userAgent.toLowerCase();
-  if (/ipad|tablet|playbook|silk|(android(?!.*mobile))/.test(ua)) return "tablet";
-  if (/mobi|iphone|ipod|android|blackberry|opera mini|iemobile/.test(ua)) return "mobile";
-  return "desktop";
-}
+const SLUG_RE = /^[a-z0-9][a-z0-9-]{0,120}$/i;
 
 /**
- * Outbound affiliate redirect + real click tracking.
- * Every "Try it" button points here, so a click is recorded exactly once per visit.
+ * Outbound redirect + real click tracking.
+ *
+ *  /go/<service-slug>  → the service's primary live affiliate offer when the
+ *                        partner toggle is ON, otherwise its official website.
+ *  /go/<offer-slug>    → that affiliate offer (Affiliate Marketplace links).
+ *
+ * Destinations only ever come from the database and must be absolute http(s)
+ * URLs, so this route can never be abused as an open redirect.
  */
 export async function GET(request: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const origin = new URL(request.url).origin;
+  if (!SLUG_RE.test(slug)) return NextResponse.redirect(`${origin}/catalog`, 302);
+
+  // Bursts from one IP still get redirected, they just stop inflating click stats.
+  const countable = rateLimit(`go:${clientIp(request)}`, 40, 60_000);
 
   try {
     const service = await getServiceBySlug(slug);
-    if (!service) {
-      console.warn("[go] unknown service slug:", slug);
-      return NextResponse.redirect(`${origin}/catalog`, 302);
-    }
-
-    // Priority: the service's own affiliate link, then the affiliate offer the
-    // admin bound to this service, then the official site.
-    let targetUrl = resolveTargetUrl(service);
-    let boundOfferUrl = "";
-    if (!(service.affiliate_url || "").trim() || service.is_affiliate === "no") {
-      boundOfferUrl = await getServiceOfferUrl(service._id);
-      if (boundOfferUrl) {
-        targetUrl = boundOfferUrl;
-        console.log(`[go] using bound affiliate offer link for ${slug}`);
+    if (service && service.active !== "no") {
+      const offer = service.is_affiliate === "yes" ? await getPrimaryLiveOffer(service._id) : null;
+      const affiliateUrl = offer ? safeHttpUrl(offer.affiliate_url) : null;
+      const target = affiliateUrl || safeHttpUrl(service.official_url);
+      if (!target) {
+        console.warn("[go] service has no valid target url:", slug);
+        return NextResponse.redirect(`${origin}/ai/${service.slug}`, 302);
       }
+      if (countable) {
+        await recordClick({ serviceId: service._id, offerId: affiliateUrl ? offer!._id : undefined, targetUrl: target, affiliate: Boolean(affiliateUrl) });
+      }
+      console.log(`[go] ${slug} → ${affiliateUrl ? "partner offer" : "official site"}`);
+      return NextResponse.redirect(target, 302);
     }
 
-    if (!targetUrl) {
-      console.warn("[go] service has no target url:", slug);
-      return NextResponse.redirect(`${origin}/ai/${slug}`, 302);
+    const offer = await getOfferBySlug(slug);
+    if (offer) {
+      const serviceRef = offer.service;
+      const serviceId = serviceRef && typeof serviceRef === "object" ? serviceRef._id : (serviceRef as string | undefined);
+      const serviceSlug = serviceRef && typeof serviceRef === "object" ? serviceRef.slug : "";
+      const target = offerIsLive(offer) ? safeHttpUrl(offer.affiliate_url) : null;
+      if (!target) {
+        console.warn("[go] offer is not live:", slug, offer.status);
+        return NextResponse.redirect(serviceSlug ? `${origin}/ai/${serviceSlug}` : `${origin}/offers`, 302);
+      }
+      if (countable) await recordClick({ serviceId, offerId: offer._id, targetUrl: target, affiliate: true });
+      console.log(`[go] offer ${slug} → partner url`);
+      return NextResponse.redirect(target, 302);
     }
 
-    const headerList = await headers();
-    const cookieStore = await cookies();
-    const sessionUser = await getSessionUser();
-
-    // Country only when the hosting platform provides a geo header — never guessed.
-    const country =
-      headerList.get("cf-ipcountry") ||
-      headerList.get("x-vercel-ip-country") ||
-      headerList.get("x-country-code") ||
-      "";
-
-    const clickData: Record<string, any> = {
-      service: service._id,
-      clicked_at: new Date().toISOString(),
-      language: cookieStore.get(LANG_COOKIE)?.value || "",
-      device: detectDevice(headerList.get("user-agent") || ""),
-      target_url: targetUrl,
-      affiliate_click:
-        (service.is_affiliate === "yes" && service.affiliate_url) || boundOfferUrl ? "yes" : "no",
-    };
-    if (country && country !== "XX") clickData.country = country;
-    if (sessionUser?.id) clickData.user = sessionUser.id;
-
-    const created = await totalumSdk.crud.createRecord("clicks", clickData);
-    if (created.errors) console.error("[go] click record errors:", created.errors);
-    console.log(`[go] click tracked for ${slug} → ${targetUrl} (affiliate: ${clickData.affiliate_click})`);
-
-    return NextResponse.redirect(targetUrl, 302);
-  } catch (err: any) {
-    console.error("[go] failed to track click for", slug, err);
-    // Tracking must never block the user: try to send them to the service page.
+    console.warn("[go] unknown slug:", slug);
+    return NextResponse.redirect(`${origin}/catalog`, 302);
+  } catch (err) {
+    console.error("[go] failed for", slug, err);
     return NextResponse.redirect(`${origin}/ai/${slug}`, 302);
   }
 }

@@ -126,6 +126,10 @@ export interface ServiceRecord {
   featured?: YesNo;
   popular?: YesNo;
   active?: YesNo;
+  /** Expanded by some catalog queries — technical affiliate data lives on the offers. */
+  affiliate_offers?: AffiliateOfferRecord[] | null;
+  /** Computed server-side: live primary offer used by the partner button (never stored). */
+  partner_offer?: { slug: string; sponsored: boolean } | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -338,9 +342,168 @@ export interface AffiliateOfferRecord {
   notes?: string;
   order_position?: number;
   active?: YesNo;
+  /** Health status — see OFFER_STATUSES. Broken offers are never deleted automatically. */
+  status?: OfferStatus;
+  tracking_url?: string;
+  /** Configured payout per conversion (what the network pays), not revenue. */
+  payout?: number;
+  /** One service can have many offers; the primary one powers its partner button. */
+  is_primary?: YesNo;
+  sponsored?: YesNo;
+  /** Public redirect: /go/<offer_slug>. */
+  offer_slug?: string;
+  quality_score?: number;
+  last_checked_at?: string;
+  health_note?: string;
   createdAt?: string;
   updatedAt?: string;
 }
+
+export const OFFER_STATUSES = [
+  "active",
+  "tracking_ok",
+  "tracking_unknown",
+  "needs_review",
+  "broken",
+  "inactive",
+] as const;
+export type OfferStatus = (typeof OFFER_STATUSES)[number];
+
+/** Statuses under which an offer may send real visitors to its affiliate URL. */
+export const LIVE_OFFER_STATUSES: OfferStatus[] = ["active", "tracking_ok", "tracking_unknown"];
+
+// ---------------------------------------------------------------------------
+// Monetisation: plans, subscriptions, orders, AI credits
+// ---------------------------------------------------------------------------
+
+/** Access types checked by the backend. `main_catalog` is ALWAYS free. */
+export const PLAN_ACCESS_RULES = [
+  "pro",
+  "social_studio",
+  "content_generator",
+  "radar_analytics",
+  "no_ads",
+  "priority_credits",
+] as const;
+export type PlanAccessRule = (typeof PLAN_ACCESS_RULES)[number];
+export type AccessType = "main_catalog" | PlanAccessRule;
+
+export interface PlanRecord {
+  _id: string;
+  name: string;
+  slug: string;
+  price?: number;
+  currency?: Currency;
+  duration_days?: number;
+  description?: string;
+  features?: string;
+  access_rules?: PlanAccessRule[] | null;
+  ai_credits?: number;
+  social_limit?: number;
+  publishing_limit?: number;
+  scheduling?: YesNo;
+  analytics?: YesNo;
+  order_position?: number;
+  active?: YesNo;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const SUBSCRIPTION_STATUSES = ["active", "expired", "cancelled", "pending", "paid", "refunded"] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+
+export interface SubscriptionRecord {
+  _id: string;
+  user?: string | { _id: string; name?: string; email?: string } | null;
+  plan?: string | PlanRecord | null;
+  order?: string | OrderRecord | null;
+  status?: SubscriptionStatus;
+  start_date?: string;
+  end_date?: string;
+  provider?: string;
+  provider_subscription_id?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const ORDER_STATUSES = ["pending", "paid", "failed", "cancelled", "refunded"] as const;
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
+export interface OrderRecord {
+  _id: string;
+  order_number?: string;
+  user?: string | { _id: string; name?: string; email?: string } | null;
+  plan?: string | PlanRecord | null;
+  amount?: number;
+  currency?: Currency;
+  status?: OrderStatus;
+  provider?: string;
+  provider_payment_id?: string;
+  description?: string;
+  paid_at?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export const CREDIT_TRANSACTION_TYPES = [
+  "purchase",
+  "subscription",
+  "usage",
+  "refund",
+  "bonus",
+  "admin_adjustment",
+] as const;
+export type CreditTransactionType = (typeof CREDIT_TRANSACTION_TYPES)[number];
+
+export interface CreditAccountRecord {
+  _id: string;
+  user?: string | { _id: string; name?: string; email?: string } | null;
+  balance?: number;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface CreditTransactionRecord {
+  _id: string;
+  user?: string | { _id: string; name?: string; email?: string } | null;
+  amount?: number;
+  type?: CreditTransactionType;
+  balance_after?: number;
+  reference_id?: string;
+  description?: string;
+  createdAt?: string;
+}
+
+export interface AuditLogRecord {
+  _id: string;
+  admin?: string | { _id: string; name?: string; email?: string } | null;
+  action?: string;
+  target_type?: string;
+  target_id?: string;
+  details?: string;
+  createdAt?: string;
+}
+
+/** Affiliate ranking weights in percent (configurable in Admin → Affiliate Marketplace). */
+export interface RankingWeights {
+  relevance: number;
+  performance: number;
+  cr: number;
+  epc: number;
+  payout: number;
+  popularity: number;
+  quality: number;
+}
+
+export const DEFAULT_RANKING_WEIGHTS: RankingWeights = {
+  relevance: 45,
+  performance: 20,
+  cr: 10,
+  epc: 10,
+  payout: 5,
+  popularity: 5,
+  quality: 5,
+};
 
 /** Kind of free material the Telegram bot delivers. */
 export type FolderContentType = "prompts" | "guide" | "instruction";

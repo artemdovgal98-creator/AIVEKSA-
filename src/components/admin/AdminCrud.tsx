@@ -185,7 +185,7 @@ export function AdminCrud<T extends { _id: string }>({
       }));
     }
     if (field.optionsSource === "services") {
-      return services.map((service) => ({ value: service._id, label: service.name }));
+      return services.map((service) => ({ value: service._id, label: service.name || service.title_ru || service.title_en || service.slug }));
     }
     return field.options || [];
   };

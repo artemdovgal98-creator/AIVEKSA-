@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useLang } from "@/lib/i18n/context";
-import { categoryName, expandedCategory, isAffiliatePartner, pickLocalized, serviceLogo, serviceTitle, toTags } from "@/lib/localize";
+import { categoryName, expandedCategory, isAffiliatePartner, outboundHref, pickLocalized, serviceLogo, serviceTitle, toTags } from "@/lib/localize";
+import { publicDict } from "@/lib/i18n/public-dict";
 import { FavoriteButton } from "./FavoriteButton";
 import { Star, ExternalLink, Flame, BadgeCheck } from "lucide-react";
 import type { ServiceRecord } from "@/lib/types";
@@ -42,6 +43,8 @@ export function ServiceCard({ service, score, delay = 0 }: { service: ServiceRec
   // Only shown once the owner really connected an affiliate link — internal
   // affiliate bookkeeping is never exposed to visitors.
   const partner = isAffiliatePartner(service);
+  const sponsored = Boolean(service.partner_offer?.sponsored);
+  const p = publicDict(lang).card;
 
   return (
     <article
@@ -73,12 +76,16 @@ export function ServiceCard({ service, score, delay = 0 }: { service: ServiceRec
                 {service.rating.toFixed(1)}
               </span>
             )}
-            {partner && (
+            {sponsored ? (
+              <span className="flex items-center gap-0.5 rounded-full border border-amber-300/30 bg-amber-300/12 px-2 py-0.5 font-bold uppercase tracking-wide text-amber-200">
+                {p.sponsored}
+              </span>
+            ) : partner ? (
               <span className="flex items-center gap-0.5 rounded-full bg-[color:var(--neon-violet)]/16 px-2 py-0.5 font-semibold text-[#d8b4fe]">
                 <BadgeCheck className="h-3 w-3" />
-                {t.admin.affiliate.partner}
+                {p.partner}
               </span>
-            )}
+            ) : null}
             {typeof score === "number" && (
               <span className="rounded-full bg-[color:var(--neon-cyan)]/15 px-2 py-0.5 font-semibold text-[color:var(--neon-cyan)]">
                 {t.match.matchScore} {score}%
@@ -125,9 +132,9 @@ export function ServiceCard({ service, score, delay = 0 }: { service: ServiceRec
           {t.card.details}
         </Link>
         <a
-          href={`/go/${service.slug}`}
+          href={outboundHref(service)}
           target="_blank"
-          rel="nofollow sponsored noopener noreferrer"
+          rel={partner ? "nofollow sponsored noopener noreferrer" : "nofollow noopener noreferrer"}
           className="flex min-w-0 flex-1 basis-[45%] items-center justify-center gap-1.5 rounded-xl bg-gradient-to-r from-[#4c6fff] to-[#a855f7] px-3 py-2.5 text-[13px] font-semibold text-white transition-all hover:shadow-[0_10px_30px_-12px_rgba(124,145,255,1)]"
         >
           <span className="truncate">{t.card.try}</span>

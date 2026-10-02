@@ -9,6 +9,7 @@ import { LANGS } from "@/lib/i18n/dictionaries";
 import { api } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { ProfileEditor } from "@/components/site/ProfileEditor";
+import { ProfileBilling } from "@/components/site/ProfileBilling";
 import { LogOut, Mail, Shield, Star, Loader2 } from "lucide-react";
 import type { Lang } from "@/lib/types";
 
@@ -97,6 +98,8 @@ export default function ProfilePage() {
           </div>
         </div>
       </section>
+
+      {me && <ProfileBilling />}
 
       {me && <ProfileEditor initial={me} />}
 

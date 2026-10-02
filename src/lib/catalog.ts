@@ -1,6 +1,7 @@
 import "server-only";
 import { totalumSdk } from "@/lib/totalum";
 import { readCount } from "@/lib/aggregate";
+import { attachPartnerOffers, getLiveOfferServiceIds } from "@/lib/offers";
 import type { ArticleRecord, BannerRecord, CategoryRecord, Lang, RadarRecord, RadarType, ServiceRecord } from "@/lib/types";
 
 /**
@@ -38,6 +39,9 @@ function escapeRegex(value: string): string {
 const SEARCHABLE_FIELDS = [
   "name",
   "slug",
+  "title_ru",
+  "title_uk",
+  "title_en",
   "tags",
   "keywords",
   "description_ru",
@@ -54,9 +58,18 @@ export interface ServiceQueryOptions {
   categoryId?: string;
   filter?: "all" | "free" | "has_free" | "paid" | "popular" | "new" | "top_rated" | "featured" | "affiliate";
   sort?: "popular" | "rating" | "new" | "name";
+  /**
+   * all       — everything
+   * main      — the normal AI catalog (network inventory cards excluded)
+   * affiliate — services with an active affiliate offer and the partner toggle ON
+   */
+  scope?: "all" | "main" | "affiliate";
   limit?: number;
   offset?: number;
 }
+
+/** Networks whose offers are marketplace inventory rather than regular catalog AI. */
+const MARKETPLACE_NETWORKS = ["crakrevenue", "mylead", "awin", "admitad"];
 
 export async function getCategories(onlyActive = true): Promise<CategoryRecord[]> {
   const filter: Record<string, any> = {};
@@ -83,7 +96,7 @@ export async function getCategoryBySlug(slug: string): Promise<CategoryRecord | 
 /** Relevance scoring used for search and for the "Which AI do I need?" matcher. */
 export function scoreService(service: ServiceRecord, tokens: string[]): number {
   if (!tokens.length) return 0;
-  const name = (service.name || "").toLowerCase();
+  const name = [service.name, service.title_ru, service.title_uk, service.title_en].filter(Boolean).join(" ").toLowerCase();
   const tags = (service.tags || "").toLowerCase();
   const keywords = (service.keywords || "").toLowerCase();
   const descriptions = [service.description_ru, service.description_uk, service.description_en]
@@ -120,9 +133,25 @@ export function scoreService(service: ServiceRecord, tokens: string[]): number {
 export async function getServices(
   options: ServiceQueryOptions = {}
 ): Promise<{ items: ServiceRecord[]; total: number }> {
-  const { q, categorySlug, filter = "all", sort = "popular", limit = 24, offset = 0 } = options;
+  const { q, categorySlug, filter = "all", sort = "popular", scope = "all", limit = 24, offset = 0 } = options;
 
   const dbFilter: Record<string, any> = { active: "yes" };
+
+  if (scope === "affiliate" || scope === "main") {
+    const live = await getLiveOfferServiceIds();
+    if (scope === "affiliate") {
+      dbFilter._id = { in: Array.from(live.keys()) };
+      dbFilter.is_affiliate = "yes";
+    } else {
+      const inventory = Array.from(live.entries())
+        .filter(([, offer]) => {
+          const network = offer.network && typeof offer.network === "object" ? offer.network.slug : "";
+          return MARKETPLACE_NETWORKS.includes(network);
+        })
+        .map(([serviceId]) => serviceId);
+      if (inventory.length) dbFilter._id = { nin: inventory };
+    }
+  }
 
   let categoryId = options.categoryId;
   if (!categoryId && categorySlug) {
@@ -151,11 +180,13 @@ export async function getServices(
     case "featured":
       dbFilter.featured = "yes";
       break;
-    case "affiliate":
-      // 💰 Affiliate Picks — only services the owner really connected.
-      dbFilter.affiliate_status = "connected";
+    case "affiliate": {
+      // 💰 Affiliate Picks — legacy filter value, now backed by live offers.
+      const live = await getLiveOfferServiceIds();
+      dbFilter._id = { in: Array.from(live.keys()) };
       dbFilter.is_affiliate = "yes";
       break;
+    }
     default:
       break;
   }
@@ -196,7 +227,7 @@ export async function getServices(
       .sort((a, b) => b.score - a.score)
       .map((entry) => entry.service)
       .slice(offset, offset + limit);
-    return { items, total };
+    return { items: await attachPartnerOffers(items), total };
   }
 
   const countResult = await totalumSdk.crud.query("services", {
@@ -206,7 +237,7 @@ export async function getServices(
   if (countResult.errors) console.error("[catalog] getServices count errors:", countResult.errors);
   const total = readCount(countResult);
 
-  return { items, total: total || items.length };
+  return { items: await attachPartnerOffers(items), total: total || items.length };
 }
 
 export async function getServiceBySlug(slug: string): Promise<ServiceRecord | null> {
@@ -233,7 +264,7 @@ export async function getSimilarServices(service: ServiceRecord, limit = 4): Pro
     category: true,
   });
   if (result.errors) console.error("[catalog] getSimilarServices errors:", result.errors);
-  return (result.data || []) as unknown as ServiceRecord[];
+  return attachPartnerOffers((result.data || []) as unknown as ServiceRecord[]);
 }
 
 /**
@@ -269,8 +300,9 @@ export async function matchServices(
     .slice(0, limit);
 
   const best = scored[0]?.score || 1;
-  return scored.map((entry) => ({
-    service: entry.service,
+  const withOffers = await attachPartnerOffers(scored.map((entry) => entry.service));
+  return scored.map((entry, index) => ({
+    service: withOffers[index],
     score: Math.max(35, Math.round((entry.score / best) * 100)),
   }));
 }

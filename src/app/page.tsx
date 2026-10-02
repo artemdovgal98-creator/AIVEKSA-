@@ -10,7 +10,13 @@ import { AdBanner } from "@/components/site/AdBanner";
 import { OwnerContacts } from "@/components/site/OwnerContacts";
 import { RadarStrip } from "@/components/site/RadarFeed";
 import { TelegramButton } from "@/components/site/TelegramButton";
-import { Wand2, Wrench, Sparkles, Send, ArrowRight } from "lucide-react";
+import { Wand2, Wrench, Sparkles, Send, ArrowRight, LayoutGrid } from "lucide-react";
+import { getSessionUser } from "@/lib/admin-auth";
+import { getRecommendedServices, rankFeaturedAffiliate } from "@/lib/ranking";
+import { publicDict } from "@/lib/i18n/public-dict";
+import { cookies } from "next/headers";
+import { SeenOffersCookie } from "@/components/site/SeenOffersCookie";
+import { SEEN_OFFERS_COOKIE, parseSeenOffers } from "@/lib/seen-offers";
 
 export const dynamic = "force-dynamic";
 
@@ -18,16 +24,30 @@ const appUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export default async function Home() {
   const { lang, t } = await getServerDict();
+  const p = publicDict(lang).home;
+  const sessionUser = await getSessionUser();
+  const userId = sessionUser?.id || null;
+  // Frequency cap: offers this visitor saw in the last hours get a ranking penalty.
+  const cookieStore = await cookies();
+  const recentlyShown = parseSeenOffers(cookieStore.get(SEEN_OFFERS_COOKIE)?.value);
 
-  const [categories, featured, popular, newest, affiliatePicks, allServices] = await Promise.all([
+  const [categories, recommended, popular, newest, featuredAffiliate, allServices] = await Promise.all([
     getCategories(),
-    getServices({ filter: "featured", sort: "rating", limit: 6 }),
+    // Organic recommendations: from the visitor's favorites / activity, else editors' picks.
+    getRecommendedServices(userId, 6).catch((err) => {
+      console.error("[home] recommended failed:", err);
+      return [];
+    }),
     getServices({ filter: "popular", sort: "popular", limit: 8 }),
     getServices({ sort: "new", limit: 4 }),
-    // 💰 Affiliate Picks — rendered only when the owner actually connected links.
-    getServices({ filter: "affiliate", sort: "rating", limit: 6 }),
+    // Featured Affiliate AI — relevance-first ranking, max 3 cards so partners never dominate.
+    rankFeaturedAffiliate({ userId, visitorSeed: userId || "guest", recentlyShown, limit: 3 }).catch((err) => {
+      console.error("[home] featured affiliate failed:", err);
+      return [];
+    }),
     getServices({ limit: 1 }),
   ]);
+  console.log(`[home] recommended=${recommended.length} featuredAffiliate=${featuredAffiliate.length}`);
 
   // 📡 AI Radar — the newest curated entries, straight from the admin panel.
   const radar = await getRadarItems({ limit: 6 });
@@ -115,6 +135,83 @@ export default async function Home() {
       </section>
 
       <div className="mx-auto max-w-7xl space-y-14 px-4 pb-16 sm:px-6 lg:px-8">
+        {/* ---------------- RECOMMENDED AI ---------------- */}
+        {recommended.length > 0 && (
+          <section>
+            <SectionHeading
+              title={`⭐ ${p.recommended}`}
+              subtitle={userId ? p.recommendedSub : p.recommendedGuest}
+              href="/catalog?filter=featured"
+              linkLabel={t.home.viewAll}
+              accent="violet"
+            />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {recommended.map((service, index) => (
+                <ServiceCard key={service._id} service={service} delay={index * 40} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ---------------- OWNER CONTACTS ---------------- */}
+        <OwnerContacts />
+
+        <AdBanner position="home_top" />
+
+        {/* ---------------- FEATURED AFFILIATE AI ---------------- */}
+        {featuredAffiliate.length > 0 && (
+          <section>
+            <SectionHeading
+              title={p.featuredAffiliate}
+              subtitle={p.featuredAffiliateSub}
+              href="/catalog?scope=affiliate"
+              linkLabel={t.home.viewAll}
+              accent="cyan"
+            />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {featuredAffiliate.map((entry, index) => (
+                <ServiceCard key={entry.service._id} service={entry.service} delay={index * 40} />
+              ))}
+            </div>
+            <SeenOffersCookie slugs={featuredAffiliate.map((entry) => entry.offer.offer_slug || "").filter(Boolean)} />
+          </section>
+        )}
+
+
+        {/* ---------------- POPULAR ---------------- */}
+        {popular.items.length > 0 && (
+          <section>
+            <SectionHeading
+              title={t.home.popular}
+              subtitle={t.home.popularSub}
+              href="/catalog?filter=popular"
+              linkLabel={t.home.viewAll}
+            />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {popular.items.map((service, index) => (
+                <ServiceCard key={service._id} service={service} delay={index * 35} />
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* ---------------- NEWEST ---------------- */}
+        {newest.items.length > 0 && (
+          <section>
+            <SectionHeading
+              title={t.home.newest}
+              href="/catalog?sort=new"
+              linkLabel={t.home.viewAll}
+              accent="cyan"
+            />
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {newest.items.map((service, index) => (
+                <ServiceCard key={service._id} service={service} delay={index * 35} />
+              ))}
+            </div>
+          </section>
+        )}
+
         {/* ---------------- CATEGORIES ---------------- */}
         <section>
           <SectionHeading title={t.home.quickCategories} accent="cyan" />
@@ -134,47 +231,6 @@ export default async function Home() {
             ))}
           </div>
         </section>
-
-        {/* ---------------- OWNER CONTACTS ---------------- */}
-        <OwnerContacts />
-
-        <AdBanner position="home_top" />
-
-        {/* ---------------- FEATURED ---------------- */}
-        {featured.items.length > 0 && (
-          <section>
-            <SectionHeading
-              title={`⭐ ${t.home.featured}`}
-              subtitle={t.home.featuredSub}
-              href="/catalog?filter=featured"
-              linkLabel={t.home.viewAll}
-              accent="violet"
-            />
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {featured.items.map((service, index) => (
-                <ServiceCard key={service._id} service={service} delay={index * 40} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ---------------- AFFILIATE PICKS ---------------- */}
-        {affiliatePicks.items.length > 0 && (
-          <section>
-            <SectionHeading
-              title={`\u{1F4B0} ${t.home.affiliatePicks}`}
-              subtitle={t.home.affiliatePicksSub}
-              href="/catalog?filter=affiliate"
-              linkLabel={t.home.viewAll}
-              accent="cyan"
-            />
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {affiliatePicks.items.map((service, index) => (
-                <ServiceCard key={service._id} service={service} delay={index * 40} />
-              ))}
-            </div>
-          </section>
-        )}
 
         {/* ---------------- AI RADAR ---------------- */}
         {radar.length > 0 && (
@@ -240,39 +296,25 @@ export default async function Home() {
           <TelegramButton variant="full" label={t.referralPage.openBot} className="w-full sm:w-auto sm:px-8" />
         </div>
 
-        {/* ---------------- POPULAR ---------------- */}
-        {popular.items.length > 0 && (
-          <section>
-            <SectionHeading
-              title={t.home.popular}
-              subtitle={t.home.popularSub}
-              href="/catalog?filter=popular"
-              linkLabel={t.home.viewAll}
-            />
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {popular.items.map((service, index) => (
-                <ServiceCard key={service._id} service={service} delay={index * 35} />
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* ---------------- NEWEST ---------------- */}
-        {newest.items.length > 0 && (
-          <section>
-            <SectionHeading
-              title={t.home.newest}
-              href="/catalog?sort=new"
-              linkLabel={t.home.viewAll}
-              accent="cyan"
-            />
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              {newest.items.map((service, index) => (
-                <ServiceCard key={service._id} service={service} delay={index * 35} />
-              ))}
-            </div>
-          </section>
-        )}
+        {/* ---------------- FULL CATALOG ---------------- */}
+        <section className="glass-strong neon-border relative overflow-hidden rounded-3xl p-6 text-center sm:p-10">
+          <div className="pointer-events-none absolute -left-16 -top-16 h-56 w-56 rounded-full bg-[#4c6fff]/20 blur-3xl" aria-hidden />
+          <div className="pointer-events-none absolute -bottom-16 -right-16 h-56 w-56 rounded-full bg-[#a855f7]/20 blur-3xl" aria-hidden />
+          <div className="relative">
+            <LayoutGrid className="mx-auto h-9 w-9 text-[color:var(--neon-cyan)]" />
+            <h2 className="font-display mt-3 text-2xl font-extrabold text-white sm:text-3xl">
+              {p.fullCatalog} <span className="neon-text">· {allServices.total}</span>
+            </h2>
+            <p className="mx-auto mt-2 max-w-xl text-sm text-foreground/65">{p.fullCatalogSub}</p>
+            <Link
+              href="/catalog"
+              className="mt-5 inline-flex items-center gap-2 rounded-2xl bg-gradient-to-r from-[#4c6fff] to-[#a855f7] px-7 py-3.5 text-sm font-bold text-white transition-all hover:shadow-[0_12px_34px_-14px_rgba(124,145,255,1)]"
+            >
+              {p.openCatalog}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </section>
 
         <AdBanner position="home_bottom" />
       </div>
