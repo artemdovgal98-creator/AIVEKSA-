@@ -2,14 +2,16 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { upsertSetting } from "@/lib/settings";
 import { logAdminAction } from "@/lib/audit";
-import { SITE_CODE_KEYS, SITE_CODE_MAX, getSiteCode, invalidateSiteCode, parseSiteCode } from "@/lib/site-code";
+import { getSiteCode, invalidateSiteCode, parseSiteCode } from "@/lib/site-code";
+import { SITE_CODE_SLOTS, SITE_CODE_MAX, siteCodeSettingKey } from "@/lib/site-code-slots";
 
 export const dynamic = "force-dynamic";
 
 async function snapshot() {
   invalidateSiteCode();
-  const code = await getSiteCode();
-  return { ...code, headTags: parseSiteCode(code.head).length, bodyTags: parseSiteCode(code.body).length };
+  const values = await getSiteCode();
+  const counts = Object.fromEntries(SITE_CODE_SLOTS.map((slot) => [slot.key, parseSiteCode(values[slot.key] || "").length]));
+  return { values, counts };
 }
 
 export async function GET() {
@@ -23,22 +25,23 @@ export async function GET() {
   }
 }
 
-/** PUT { head?: string, body?: string } — only <meta> and <script> tags are rendered on the site. */
+/** PUT { values: Record<slotKey, string> } — only <meta> and <script> tags are rendered on the site. */
 export async function PUT(request: Request) {
   try {
     const admin = await requireAdmin();
     if (!admin) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
-    const body = (await request.json().catch(() => ({}))) as Record<string, unknown>;
+    const body = (await request.json().catch(() => ({}))) as { values?: Record<string, unknown> };
+    const values = body.values || {};
     const changed: string[] = [];
-    for (const field of ["head", "body"] as const) {
-      if (typeof body[field] !== "string") continue;
-      const value = (body[field] as string).trim();
+    for (const slot of SITE_CODE_SLOTS) {
+      if (typeof values[slot.key] !== "string") continue;
+      const value = (values[slot.key] as string).trim();
       if (value.length > SITE_CODE_MAX) return NextResponse.json({ ok: false, error: "Code is too long" }, { status: 400 });
       if (value && parseSiteCode(value).length === 0) {
         return NextResponse.json({ ok: false, error: "NO_TAGS" }, { status: 400 });
       }
-      await upsertSetting(SITE_CODE_KEYS[field], value, field === "head" ? "Custom code in <head>" : "Custom code before </body>");
-      changed.push(field);
+      await upsertSetting(siteCodeSettingKey(slot.key), value, `Custom code: ${slot.key}`);
+      changed.push(slot.key);
     }
     await logAdminAction(admin._id, "site_code.update", "admin_settings", "site_code", { changed });
     console.log("[api/admin/site-code] updated:", changed.join(", ") || "nothing");

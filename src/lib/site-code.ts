@@ -1,13 +1,12 @@
 import "server-only";
 import { readSetting } from "@/lib/settings";
+import { SITE_CODE_SLOTS, siteCodeSettingKey, type SiteCodeScope } from "@/lib/site-code-slots";
 
 /**
- * Admin-managed third-party code (ad-network verification meta tags, chat/ad widgets).
- * Stored in admin_settings; only <meta> and <script> tags are accepted and rendered.
+ * Admin-managed third-party code (ad-network verification meta tags, analytics
+ * snippets, chat/ad widgets). Stored in admin_settings, one row per slot (see
+ * SITE_CODE_SLOTS); only <meta> and <script> tags are accepted and rendered.
  */
-export const SITE_CODE_KEYS = { head: "site_code_head", body: "site_code_body" } as const;
-export const SITE_CODE_MAX = 20_000;
-
 export interface ParsedTag {
   kind: "meta" | "script";
   attrs: Record<string, string | true>;
@@ -36,16 +35,27 @@ export function parseSiteCode(code: string): ParsedTag[] {
   return tags;
 }
 
-let cache: { at: number; value: { head: string; body: string } } | null = null;
+let cache: { at: number; value: Record<string, string> } | null = null;
 
 export function invalidateSiteCode() {
   cache = null;
 }
 
-export async function getSiteCode(): Promise<{ head: string; body: string }> {
+/** Raw code per slot key, e.g. `{ head: "...", head_analytics: "...", body_chat: "..." }`. */
+export async function getSiteCode(): Promise<Record<string, string>> {
   if (cache && Date.now() - cache.at < 30_000) return cache.value;
-  const [head, body] = await Promise.all([readSetting(SITE_CODE_KEYS.head), readSetting(SITE_CODE_KEYS.body)]);
-  const value = { head: head || "", body: body || "" };
+  const entries = await Promise.all(
+    SITE_CODE_SLOTS.map(async (slot) => [slot.key, (await readSetting(siteCodeSettingKey(slot.key))) || ""] as const)
+  );
+  const value = Object.fromEntries(entries);
   cache = { at: Date.now(), value };
   return value;
+}
+
+/** Concatenates every slot that belongs to the given scope, in declaration order. */
+export function getSiteCodeByScope(code: Record<string, string>, scope: SiteCodeScope): string {
+  return SITE_CODE_SLOTS.filter((slot) => slot.scope === scope)
+    .map((slot) => code[slot.key] || "")
+    .filter(Boolean)
+    .join("\n");
 }
