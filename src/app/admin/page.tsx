@@ -130,304 +130,239 @@ export default function AdminDashboardPage() {
     );
   }
 
-  const cards = [
-    { label: t.admin.stats.services, value: stats.servicesTotal, icon: Sparkles, accent: "text-[#8ab4ff]" },
-    { label: t.admin.stats.activeServices, value: stats.servicesActive, icon: Sparkles, accent: "text-emerald-300" },
-    { label: t.admin.stats.users, value: stats.usersTotal, icon: Users, accent: "text-[#d8b4fe]" },
-    { label: t.admin.stats.views, value: stats.views, icon: Eye, accent: "text-[#67e8f9]" },
-    { label: t.admin.stats.clicks, value: stats.clicksTotal, icon: MousePointerClick, accent: "text-amber-300" },
-    { label: t.admin.stats.today, value: stats.clicksToday, icon: MousePointerClick, accent: "text-amber-200" },
-    { label: t.admin.stats.week, value: stats.clicksWeek, icon: MousePointerClick, accent: "text-amber-200" },
-    { label: t.admin.stats.month, value: stats.clicksMonth, icon: MousePointerClick, accent: "text-amber-200" },
-    { label: t.admin.stats.withAffiliate, value: stats.withAffiliate, icon: Link2, accent: "text-emerald-300" },
-    { label: t.admin.stats.withoutAffiliate, value: stats.withoutAffiliate, icon: Link2Off, accent: "text-rose-300" },
-  ];
-
+  const dd = ad.dashboard;
+  const st = t.admin.stats;
   const e = t.admin.earnings;
   const empty = { earned: {}, pending: {} };
   const earnings = stats.earnings || { allTime: empty, week: empty, month: empty, entries: 0 };
-  const earningCards = [
-    { label: e.allTime, value: earnings.allTime.earned },
-    { label: e.week, value: earnings.week.earned },
-    { label: e.month, value: earnings.month.earned },
+  const aff = stats.affiliate;
+  const na = (value: number | null | undefined, suffix = "") => (value === null || value === undefined ? "N/A" : `${value}${suffix}`);
+  const pct = (value: number | null | undefined) => (value === null || value === undefined ? "N/A" : `${(value * 100).toFixed(2)}%`);
+
+  const kpis = [
+    { label: st.users, value: stats.usersTotal, sub: `${dd.activeUsers}: ${stats.activeUsers}`, icon: Users, accent: "text-[#d8b4fe]", glow: "bg-[#a855f7]/20" },
+    { label: st.views, value: stats.views, sub: `${st.ctr}: ${na(stats.ctr, "%")}`, icon: Eye, accent: "text-[#67e8f9]", glow: "bg-cyan-400/15" },
+    { label: st.clicks, value: stats.clicksTotal, sub: `${st.today}: ${stats.clicksToday}`, icon: MousePointerClick, accent: "text-amber-300", glow: "bg-amber-400/15" },
+    { label: dd.activeSubs, value: stats.activeSubscriptions, sub: `${dd.orders}: ${stats.ordersPaid} / ${stats.ordersTotal}`, icon: Repeat, accent: "text-violet-300", glow: "bg-violet-500/15" },
+    { label: dd.revenue, value: stats.ordersPaid ? formatMoney(stats.revenue) : "N/A", sub: `${dd.commission}: ${formatMoney(earnings.allTime.earned)}`, icon: Wallet, accent: "text-emerald-300", glow: "bg-emerald-400/15" },
+    { label: dd.conversions, value: aff.conversions, sub: `${dd.cr}: ${na(aff.cr, "%")}`, icon: Target, accent: "text-cyan-300", glow: "bg-[#4c6fff]/20" },
   ];
 
-  const dd = ad.dashboard;
-  const na = (value: number | null | undefined, suffix = "") => (value === null || value === undefined ? "N/A" : `${value}${suffix}`);
-  const billingCards = [
-    { label: dd.activeUsers, value: stats.activeUsers, icon: Activity, accent: "text-emerald-300" },
-    { label: dd.activeSubs, value: stats.activeSubscriptions, icon: Repeat, accent: "text-[#d8b4fe]" },
-    { label: dd.revenue, value: stats.ordersPaid ? formatMoney(stats.revenue) : "N/A", icon: Wallet, accent: "text-emerald-300" },
-    { label: dd.orders, value: `${stats.ordersPaid} / ${stats.ordersTotal}`, icon: ShoppingBag, accent: "text-amber-300" },
-  ];
-  const aff = stats.affiliate;
-  const affiliateCards = [
-    { label: dd.affServices, value: aff.services, icon: Handshake, accent: "text-emerald-300" },
-    { label: dd.affClicks, value: aff.clicks, icon: MousePointerClick, accent: "text-amber-300" },
-    { label: dd.conversions, value: aff.conversions, icon: Target, accent: "text-cyan-300" },
-    { label: dd.affRevenue, value: aff.conversions ? formatMoney(aff.revenue) : "N/A", icon: Wallet, accent: "text-emerald-300" },
-    { label: dd.epc, value: aff.epc && aff.conversions ? formatMoney(aff.epc) : "N/A", icon: Sparkles, accent: "text-violet-300" },
-    { label: dd.cr, value: na(aff.cr, "%"), icon: Percent, accent: "text-cyan-300" },
-    { label: dd.ctr, value: na(aff.ctr, "%"), icon: Percent, accent: "text-amber-200" },
-  ];
+  const Row = ({ label, value, tone = "text-white" }: { label: string; value: React.ReactNode; tone?: string }) => (
+    <div className="flex items-center justify-between gap-3 border-b border-white/5 py-2 last:border-0">
+      <span className="text-[13px] text-foreground/55">{label}</span>
+      <span className={`font-display text-sm font-bold ${tone}`}>{value}</span>
+    </div>
+  );
+
+  const Card = ({ title, icon: Icon, accent, href, linkLabel, children }: { title: string; icon: typeof Users; accent: string; href?: string; linkLabel?: string; children: React.ReactNode }) => (
+    <div className="min-w-0 rounded-2xl border border-white/6 bg-white/[0.03] p-4">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-sm font-bold text-white">
+          <Icon className={`h-4 w-4 ${accent}`} />
+          {title}
+        </h3>
+        {href && (
+          <Link href={href} className="text-xs font-semibold text-[color:var(--neon-cyan)] hover:underline">
+            {linkLabel || "→"} →
+          </Link>
+        )}
+      </div>
+      {children}
+    </div>
+  );
+
+  const noData = <p className="py-4 text-center text-xs text-foreground/40">{st.noData}</p>;
+  const Count = ({ n }: { n: number }) => (
+    <span className="shrink-0 rounded-md bg-white/8 px-1.5 py-0.5 text-[11px] font-bold text-foreground/80">{n}</span>
+  );
+
   const orderList = (list: SlimOrder[]) =>
     list.length === 0 ? (
-      <p className="py-5 text-center text-sm text-foreground/40">{t.admin.stats.noData}</p>
+      noData
     ) : (
-      <ul className="space-y-1.5">
-        {list.map((order) => (
-          <li key={order._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-white/4 px-3 py-2 text-sm">
+      <ul className="space-y-1">
+        {list.slice(0, 5).map((order) => (
+          <li key={order._id} className="flex flex-wrap items-center gap-x-2.5 gap-y-1 rounded-lg bg-white/4 px-2.5 py-1.5 text-[13px]">
             <span className="font-semibold text-white">{fmtAmount(order.amount, order.currency)}</span>
             <StatusPill status={order.status} label={ad.billing.statuses[order.status || ""]} />
-            <span className="text-xs text-foreground/50">{order.plan || "—"}</span>
-            <span className="text-xs text-foreground/40">{order.user || "—"}</span>
-            <span className="ml-auto text-xs text-foreground/35">{fmtDate(order.date, true)}</span>
+            <span className="min-w-0 truncate text-xs text-foreground/50">{order.plan || order.user || "—"}</span>
+            <span className="ml-auto text-[11px] text-foreground/35">{fmtDate(order.date, true)}</span>
           </li>
         ))}
       </ul>
     );
 
+  console.log("[admin] dashboard rendered", { users: stats.usersTotal, clicks: stats.clicksTotal, conversions: aff.conversions });
+
   return (
-    <div className="space-y-5">
-      {/* Subscriptions & payments — real orders only */}
-      <section className="glass-strong animate-fade-up rounded-2xl p-5">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="font-display text-base font-bold text-white">{dd.billing}</h2>
+    <section className="glass-strong animate-fade-up relative overflow-hidden rounded-3xl p-4 sm:p-6">
+      <div className="pointer-events-none absolute -right-20 -top-20 h-60 w-60 rounded-full bg-[color:var(--neon-violet)]/15 blur-3xl" aria-hidden />
+      <div className="relative space-y-5">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="font-display text-xl font-extrabold text-white sm:text-2xl">{dd.overview}</h1>
+            <p className="text-xs text-foreground/45">{dd.overviewSub}</p>
+          </div>
           {!stats.paymentsConfigured && <NotConfigured label={`Paddle · ${ad.common.notConfigured}`} />}
         </div>
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          {billingCards.map((card) => {
-            const Icon = card.icon;
+
+        {/* KPI row — each metric appears exactly once */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+          {kpis.map((kpi) => {
+            const Icon = kpi.icon;
             return (
-              <div key={card.label} className="rounded-2xl bg-white/5 px-4 py-3.5">
-                <Icon className={`mb-2 h-4.5 w-4.5 ${card.accent}`} />
-                <p className="font-display text-xl font-extrabold text-white">{card.value}</p>
-                <p className="mt-0.5 text-[11px] text-foreground/45">{card.label}</p>
+              <div key={kpi.label} className="relative overflow-hidden rounded-2xl bg-white/5 px-4 py-3.5">
+                <div className={`pointer-events-none absolute -right-6 -top-6 h-16 w-16 rounded-full blur-2xl ${kpi.glow}`} aria-hidden />
+                <Icon className={`mb-2 h-4.5 w-4.5 ${kpi.accent}`} />
+                <p className="font-display truncate text-xl font-extrabold text-white sm:text-2xl">{kpi.value}</p>
+                <p className="mt-0.5 text-[11px] font-medium text-foreground/60">{kpi.label}</p>
+                <p className="mt-1 truncate text-[10.5px] text-foreground/40">{kpi.sub}</p>
               </div>
             );
           })}
         </div>
-        {!stats.paymentsConfigured && <p className="mt-3 text-xs text-amber-300/80">{dd.paymentsOff}</p>}
-        <div className="mt-4 grid gap-4 lg:grid-cols-3">
-          <div>
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-foreground/45">{dd.recentPayments}</h3>
-            {orderList(stats.recentPayments)}
-          </div>
-          <div>
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-foreground/45">{dd.failedPayments}</h3>
-            {orderList(stats.failedPayments)}
-          </div>
-          <div>
-            <h3 className="mb-2 text-xs font-bold uppercase tracking-wide text-foreground/45">{dd.topPlans}</h3>
-            {stats.topPlans.length === 0 ? (
-              <p className="py-5 text-center text-sm text-foreground/40">{t.admin.stats.noData}</p>
-            ) : (
-              <ul className="space-y-1.5">
-                {stats.topPlans.map((plan) => (
-                  <li key={plan.name} className="flex items-center justify-between rounded-xl bg-white/4 px-3 py-2 text-sm">
-                    <span className="text-white">{plan.name}</span>
-                    <span className="font-bold text-foreground/80">{plan.orders}</span>
-                  </li>
-                ))}
-              </ul>
+        {!stats.paymentsConfigured && <p className="-mt-2 text-xs text-amber-300/80">{dd.paymentsOff}</p>}
+
+        {/* Logical detail cards */}
+        <div className="grid gap-3 lg:grid-cols-3">
+          <Card title={dd.traffic} icon={Activity} accent="text-amber-300" href="/admin/clicks" linkLabel={ad.menu.clicks}>
+            <Row label={st.week} value={stats.clicksWeek} />
+            <Row label={st.month} value={stats.clicksMonth} />
+            <Row label={st.services} value={`${stats.servicesActive} / ${stats.servicesTotal}`} />
+            <Row label={st.withAffiliate} value={<span className="inline-flex items-center gap-1"><Link2 className="h-3.5 w-3.5" />{stats.withAffiliate}</span>} tone="text-emerald-300" />
+            <Row label={st.withoutAffiliate} value={<span className="inline-flex items-center gap-1"><Link2Off className="h-3.5 w-3.5" />{stats.withoutAffiliate}</span>} tone="text-rose-300" />
+          </Card>
+
+          <Card title={dd.money} icon={ShoppingBag} accent="text-emerald-300" href="/admin/orders" linkLabel={ad.menu.orders}>
+            <Row label={`${dd.commission} · ${e.week}`} value={formatMoney(earnings.week.earned)} />
+            <Row label={`${dd.commission} · ${e.month}`} value={formatMoney(earnings.month.earned)} />
+            {!moneyIsZero(earnings.allTime.pending) && (
+              <Row label={dd.pending} value={formatMoney(earnings.allTime.pending)} tone="text-amber-300" />
             )}
-          </div>
-        </div>
-      </section>
-
-      {/* Affiliate Marketplace — clicks attributed to offers, real conversions only */}
-      <section className="glass animate-fade-up rounded-2xl p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-white">{dd.affiliate}</h2>
-          <Link href="/admin/affiliates" className="text-sm font-semibold text-[color:var(--neon-cyan)] hover:underline">
-            {ad.menu.marketplace} →
-          </Link>
-        </div>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-          {affiliateCards.map((card) => {
-            const Icon = card.icon;
-            return (
-              <div key={card.label} className="rounded-2xl bg-white/5 px-4 py-3.5">
-                <Icon className={`mb-2 h-4.5 w-4.5 ${card.accent}`} />
-                <p className="font-display text-lg font-extrabold text-white">{card.value}</p>
-                <p className="mt-0.5 text-[11px] text-foreground/45">{card.label}</p>
-              </div>
-            );
-          })}
-        </div>
-        <h3 className="mb-2 mt-4 text-xs font-bold uppercase tracking-wide text-foreground/45">{dd.topOffers}</h3>
-        {stats.topOffers.length === 0 ? (
-          <p className="py-5 text-center text-sm text-foreground/40">{t.admin.stats.noData}</p>
-        ) : (
-          <ul className="space-y-1.5">
-            {stats.topOffers.map((offer) => (
-              <li key={offer._id} className="flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl bg-white/4 px-3 py-2 text-sm">
-                <span className="min-w-0 flex-1 truncate font-medium text-white">{offer.name}</span>
-                <span className="text-xs text-foreground/45">{offer.network || "—"}</span>
-                <span className="text-xs text-foreground/70">{offer.clicks} clicks</span>
-                <span className="text-xs text-foreground/70">{offer.conversions} conv.</span>
-                <span className="text-xs text-foreground/70">EPC {offer.epc && offer.conversions ? formatMoney(offer.epc) : "N/A"}</span>
-                <span className="text-xs text-foreground/70">CR {offer.cr === null ? "N/A" : `${(offer.cr * 100).toFixed(2)}%`}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {cards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <div key={card.label} className="glass animate-fade-up rounded-2xl px-4 py-4">
-              <Icon className={`mb-2 h-4.5 w-4.5 ${card.accent}`} />
-              <p className="font-display text-2xl font-extrabold text-white">{card.value}</p>
-              <p className="mt-0.5 text-[11px] leading-tight text-foreground/45">{card.label}</p>
+            <div className="mt-2">
+              <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-foreground/40">{dd.topPlans}</p>
+              {stats.topPlans.length === 0 ? (
+                noData
+              ) : (
+                <ul className="space-y-1">
+                  {stats.topPlans.map((plan) => (
+                    <li key={plan.name} className="flex items-center justify-between rounded-lg bg-white/4 px-2.5 py-1.5 text-[13px]">
+                      <span className="truncate text-white">{plan.name}</span>
+                      <Count n={plan.orders} />
+                    </li>
+                  ))}
+                </ul>
+              )}
             </div>
-          );
-        })}
-      </div>
+          </Card>
 
-      {/* Общая комиссия / Заработано — только реальные подтверждённые суммы */}
-      <section className="glass-strong animate-fade-up relative overflow-hidden rounded-2xl p-5">
-        <div className="pointer-events-none absolute -right-16 -top-16 h-48 w-48 rounded-full bg-[color:var(--neon-violet)]/20 blur-3xl" />
-        <div className="relative">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#4c6fff] to-[#a855f7]">
-                <Wallet className="h-4.5 w-4.5 text-white" />
-              </span>
-              <div>
-                <h2 className="font-display text-base font-bold text-white">{e.title}</h2>
-                <p className="text-[11px] text-foreground/45">{e.subtitle}</p>
-              </div>
-            </div>
-            <Link
-              href="/admin/affiliates"
-              className="text-sm font-semibold text-[color:var(--neon-cyan)] hover:underline"
-            >
-              {t.admin.affiliates} →
-            </Link>
-          </div>
-
-          <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            {earningCards.map((card, index) => (
-              <div key={card.label} className="rounded-2xl bg-white/5 px-4 py-3.5">
-                <p
-                  className={`font-display font-extrabold ${
-                    index === 0
-                      ? "bg-gradient-to-r from-[#8ab4ff] to-[#d8b4fe] bg-clip-text text-2xl text-transparent"
-                      : "text-xl text-white"
-                  }`}
-                >
-                  {formatMoney(card.value)}
-                </p>
-                <p className="mt-0.5 text-[11px] text-foreground/45">{card.label}</p>
-              </div>
-            ))}
-          </div>
-
-          {!moneyIsZero(earnings.allTime.pending) && (
-            <p className="mt-3 text-xs text-amber-300/85">
-              {e.pending}: {formatMoney(earnings.allTime.pending)}
-            </p>
-          )}
+          <Card title={dd.affiliate} icon={Handshake} accent="text-cyan-300" href="/admin/affiliates" linkLabel={ad.menu.marketplace}>
+            <Row label={dd.affServices} value={aff.services} />
+            <Row label={dd.affClicks} value={aff.clicks} />
+            <Row label={dd.affRevenue} value={aff.conversions ? formatMoney(aff.revenue) : "N/A"} tone="text-emerald-300" />
+            <Row label={dd.epc} value={aff.epc && aff.conversions ? formatMoney(aff.epc) : "N/A"} />
+            <Row label={`${dd.ctr} (affiliate)`} value={na(aff.ctr, "%")} />
+          </Card>
         </div>
-      </section>
 
-      <div className="glass flex items-center gap-3 rounded-2xl px-5 py-4">
-        <Percent className="h-5 w-5 text-[color:var(--neon-cyan)]" />
+        {/* Leaders */}
         <div>
-          <p className="font-display text-xl font-extrabold text-white">
-            {stats.ctr === null ? "—" : `${stats.ctr}%`}
-          </p>
-          <p className="text-xs text-foreground/45">{t.admin.stats.ctr}</p>
+          <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-foreground/45">{dd.topLists}</h2>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <Card title={st.topServices} icon={Sparkles} accent="text-[#8ab4ff]">
+              {stats.topServices.length === 0 ? (
+                noData
+              ) : (
+                <ol className="space-y-1.5">
+                  {stats.topServices.slice(0, 5).map((service, index) => (
+                    <li key={service._id} className="flex items-center gap-2.5">
+                      <span className="w-4 shrink-0 text-xs font-bold text-foreground/35">{index + 1}</span>
+                      {service.logo_url && (
+                        <img src={service.logo_url} alt="" className="h-6 w-6 shrink-0 rounded-md border border-white/10 bg-white/5 object-contain p-0.5" />
+                      )}
+                      <Link href={`/ai/${service.slug}`} className="min-w-0 flex-1 truncate text-[13px] font-medium text-white hover:underline">
+                        {service.name}
+                      </Link>
+                      <Count n={service.clicks} />
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </Card>
+
+            <Card title={st.topCategories} icon={Activity} accent="text-violet-300">
+              {stats.topCategories.length === 0 ? (
+                noData
+              ) : (
+                <ul className="space-y-1.5">
+                  {stats.topCategories.slice(0, 5).map((entry) => (
+                    <li key={entry.category?._id || "none"} className="flex items-center gap-2.5">
+                      <span className="text-base">{entry.category?.icon}</span>
+                      <span className="min-w-0 flex-1 truncate text-[13px] text-white">{categoryName(entry.category, lang)}</span>
+                      <Count n={entry.clicks} />
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+
+            <Card title={dd.topOffers} icon={Target} accent="text-cyan-300">
+              {stats.topOffers.length === 0 ? (
+                noData
+              ) : (
+                <ul className="space-y-1.5">
+                  {stats.topOffers.slice(0, 5).map((offer) => (
+                    <li key={offer._id} className="rounded-lg bg-white/4 px-2.5 py-1.5">
+                      <div className="flex items-center gap-2">
+                        <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-white">{offer.name}</span>
+                        <Count n={offer.clicks} />
+                      </div>
+                      <p className="mt-0.5 truncate text-[11px] text-foreground/45">
+                        {offer.network || "—"} · {offer.conversions} conv. · EPC {offer.epc && offer.conversions ? formatMoney(offer.epc) : "N/A"} · CR {pct(offer.cr)}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </div>
+        </div>
+
+        {/* Recent activity */}
+        <div>
+          <h2 className="mb-2 text-xs font-bold uppercase tracking-wide text-foreground/45">{dd.activity}</h2>
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+            <Card title={dd.recentPayments} icon={Wallet} accent="text-emerald-300" href="/admin/payments" linkLabel={ad.menu.payments}>
+              {orderList(stats.recentPayments)}
+            </Card>
+            <Card title={dd.failedPayments} icon={Percent} accent="text-rose-300">
+              {orderList(stats.failedPayments)}
+            </Card>
+            <Card title={st.recentClicks} icon={MousePointerClick} accent="text-amber-300" href="/admin/clicks" linkLabel={ad.menu.clicks}>
+              {stats.recentClicks.length === 0 ? (
+                noData
+              ) : (
+                <ul className="space-y-1">
+                  {stats.recentClicks.slice(0, 5).map((click) => {
+                    const service = typeof click.service === "object" ? click.service : null;
+                    return (
+                      <li key={click._id} className="flex items-center gap-2.5 rounded-lg bg-white/4 px-2.5 py-1.5 text-[13px]">
+                        <span className="min-w-0 flex-1 truncate font-medium text-white">
+                          {service?.name || service?.title_ru || service?.slug || "—"}
+                        </span>
+                        <span className="text-[11px] text-foreground/40">{[click.device, click.country].filter(Boolean).join(" · ") || "—"}</span>
+                        <span className="text-[11px] text-foreground/35">{click.clicked_at ? fmtDate(click.clicked_at, true) : ""}</span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </Card>
+          </div>
         </div>
       </div>
-
-      <div className="grid gap-4 lg:grid-cols-2">
-        <section className="glass rounded-2xl p-5">
-          <h2 className="font-display mb-4 text-base font-bold text-white">{t.admin.stats.topServices}</h2>
-          {stats.topServices.length === 0 ? (
-            <p className="py-6 text-center text-sm text-foreground/40">{t.admin.stats.noData}</p>
-          ) : (
-            <ol className="space-y-2">
-              {stats.topServices.map((service, index) => (
-                <li key={service._id} className="flex items-center gap-3">
-                  <span className="w-5 shrink-0 text-sm font-bold text-foreground/35">{index + 1}</span>
-                  {service.logo_url && (
-                    <img
-                      src={service.logo_url}
-                      alt=""
-                      className="h-8 w-8 shrink-0 rounded-lg border border-white/10 bg-white/5 object-contain p-1"
-                    />
-                  )}
-                  <Link href={`/ai/${service.slug}`} className="min-w-0 flex-1 truncate text-sm font-medium text-white hover:underline">
-                    {service.name}
-                  </Link>
-                  <span className="shrink-0 rounded-lg bg-white/8 px-2 py-1 text-xs font-bold text-foreground/80">
-                    {service.clicks}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </section>
-
-        <section className="glass rounded-2xl p-5">
-          <h2 className="font-display mb-4 text-base font-bold text-white">{t.admin.stats.topCategories}</h2>
-          {stats.topCategories.length === 0 ? (
-            <p className="py-6 text-center text-sm text-foreground/40">{t.admin.stats.noData}</p>
-          ) : (
-            <ul className="space-y-2">
-              {stats.topCategories.map((entry) => (
-                <li key={entry.category?._id || "none"} className="flex items-center gap-3">
-                  <span className="text-lg">{entry.category?.icon}</span>
-                  <span className="min-w-0 flex-1 truncate text-sm text-white">
-                    {categoryName(entry.category, lang)}
-                  </span>
-                  <span className="shrink-0 rounded-lg bg-white/8 px-2 py-1 text-xs font-bold text-foreground/80">
-                    {entry.clicks}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
-      </div>
-
-      <section className="glass rounded-2xl p-5">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="font-display text-base font-bold text-white">{t.admin.stats.recentClicks}</h2>
-          <Link href="/admin/clicks" className="text-sm font-semibold text-[color:var(--neon-cyan)] hover:underline">
-            {t.admin.clicks} →
-          </Link>
-        </div>
-        {stats.recentClicks.length === 0 ? (
-          <p className="py-6 text-center text-sm text-foreground/40">{t.admin.stats.noData}</p>
-        ) : (
-          <ul className="space-y-1.5">
-            {stats.recentClicks.map((click) => {
-              const service = typeof click.service === "object" ? click.service : null;
-              return (
-                <li
-                  key={click._id}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-white/4 px-3 py-2 text-sm"
-                >
-                  <span className="font-medium text-white">{service?.name || service?.title_ru || service?.slug || "—"}</span>
-                  <span className="text-xs text-foreground/40">{click.device || "—"}</span>
-                  {click.country && <span className="text-xs text-foreground/40">{click.country}</span>}
-                  {click.language && (
-                    <span className="text-xs uppercase text-foreground/40">{click.language}</span>
-                  )}
-                  <span className="ml-auto text-xs text-foreground/35">
-                    {click.clicked_at ? new Date(click.clicked_at).toLocaleString() : ""}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-    </div>
+    </section>
   );
 }
