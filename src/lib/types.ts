@@ -33,7 +33,7 @@ export const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
 export const MAX_SERVICE_LOGOS = 3;
 
 /** Maximum number of photos on a user profile. */
-export const MAX_PROFILE_PHOTOS = 5;
+export const MAX_PROFILE_PHOTOS = 3;
 
 /**
  * Normalises what a client sends for a multiple-file field into the shape

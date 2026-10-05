@@ -7,22 +7,9 @@ import { FileField } from "@/components/admin/FileField";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Loader2, Save } from "lucide-react";
-import { MAX_PROFILE_PHOTOS, SOCIAL_FIELDS, type SocialField, type TotalumFile } from "@/lib/types";
+import { MAX_PROFILE_PHOTOS, type TotalumFile } from "@/lib/types";
 
-const SOCIAL_LABELS: Record<SocialField, string> = {
-  telegram_url: "Telegram",
-  twitter_url: "X / Twitter",
-  tiktok_url: "TikTok",
-  facebook_url: "Facebook",
-  instagram_url: "Instagram",
-  youtube_url: "YouTube",
-  linkedin_url: "LinkedIn",
-  discord_url: "Discord",
-  website_url: "Website",
-};
-
-const LINK_KEYS = ["link_1", "link_2", "link_3", "link_4", "link_5"] as const;
-const PHONE_KEYS = ["phone_1", "phone_2"] as const;
+const LINK_KEYS = ["link_1", "link_2"] as const;
 
 export interface ProfileDraft extends Record<string, any> {
   name?: string;
@@ -33,8 +20,9 @@ export interface ProfileDraft extends Record<string, any> {
 /**
  * Public profile editor.
  *
- * Everything filled in here (socials, phones, custom links) is rendered on the
- * home page contact block as soon as "show contacts" is on.
+ * One headline + one description are shown to the user but saved into every
+ * language variant (title_ru/uk/en, bio_ru/uk/en) so the home page contact
+ * block keeps working unchanged regardless of the visitor's language.
  */
 export function ProfileEditor({ initial }: { initial: ProfileDraft }) {
   const { t } = useLang();
@@ -42,17 +30,11 @@ export function ProfileEditor({ initial }: { initial: ProfileDraft }) {
 
   const [draft, setDraft] = useState<ProfileDraft>({
     name: initial.name || "",
-    title_ru: initial.title_ru || "",
-    title_uk: initial.title_uk || "",
-    title_en: initial.title_en || "",
-    bio_ru: initial.bio_ru || "",
-    bio_uk: initial.bio_uk || "",
-    bio_en: initial.bio_en || "",
+    headline: initial.title_ru || initial.title_en || initial.title_uk || "",
+    description: initial.bio_ru || initial.bio_en || initial.bio_uk || "",
     photos: Array.isArray(initial.photos) ? initial.photos : [],
     show_contacts: initial.show_contacts === "yes" ? "yes" : "no",
     ...Object.fromEntries(LINK_KEYS.map((key) => [key, initial[key] || ""])),
-    ...Object.fromEntries(PHONE_KEYS.map((key) => [key, initial[key] || ""])),
-    ...Object.fromEntries(SOCIAL_FIELDS.map((key) => [key, initial[key] || ""])),
   });
   const [saving, setSaving] = useState(false);
 
@@ -60,7 +42,19 @@ export function ProfileEditor({ initial }: { initial: ProfileDraft }) {
 
   const save = async () => {
     setSaving(true);
-    const response = await api.put("/api/me", draft);
+    const payload = {
+      name: draft.name,
+      title_ru: draft.headline,
+      title_uk: draft.headline,
+      title_en: draft.headline,
+      bio_ru: draft.description,
+      bio_uk: draft.description,
+      bio_en: draft.description,
+      photos: draft.photos,
+      show_contacts: draft.show_contacts,
+      ...Object.fromEntries(LINK_KEYS.map((key) => [key, draft[key] || ""])),
+    };
+    const response = await api.put("/api/me", payload);
     setSaving(false);
 
     if (!response.ok) {
@@ -127,14 +121,10 @@ export function ProfileEditor({ initial }: { initial: ProfileDraft }) {
           </button>
         </label>
 
-        {input("title_ru", `${p.headline} RU`)}
-        {input("title_uk", `${p.headline} UK`)}
-        {input("title_en", `${p.headline} EN`)}
+        {input("headline", p.headline)}
         <span className="hidden sm:block" />
 
-        {area("bio_ru", `${p.bio} RU`)}
-        {area("bio_uk", `${p.bio} UK`)}
-        {area("bio_en", `${p.bio} EN`)}
+        {area("description", p.bio)}
 
         <div className="sm:col-span-2">
           <FileField
@@ -145,20 +135,6 @@ export function ProfileEditor({ initial }: { initial: ProfileDraft }) {
             value={Array.isArray(draft.photos) ? draft.photos : []}
             onChange={(next) => set("photos", next)}
           />
-        </div>
-
-        <div className="sm:col-span-2">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/45">{p.phones}</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {PHONE_KEYS.map((key, index) => input(key, `${p.phone} ${index + 1}`, "+34 600 000 000"))}
-          </div>
-        </div>
-
-        <div className="sm:col-span-2">
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-foreground/45">{p.socials}</p>
-          <div className="grid gap-3 sm:grid-cols-2">
-            {SOCIAL_FIELDS.map((key) => input(key, SOCIAL_LABELS[key], "https://…"))}
-          </div>
         </div>
 
         <div className="sm:col-span-2">

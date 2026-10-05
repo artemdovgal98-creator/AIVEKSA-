@@ -131,6 +131,40 @@ export default async function Home() {
       </section>
 
       <div className="mx-auto max-w-7xl space-y-14 px-4 pb-16 sm:px-6 lg:px-8">
+        {/* ---------------- CATEGORIES ---------------- */}
+        <section>
+          <SectionHeading title={t.home.quickCategories} accent="cyan" />
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+            {categories.map((category, index) => (
+              <Link
+                key={category._id}
+                href={`/category/${category.slug}`}
+                className="glass glass-hover animate-fade-up flex flex-col items-center gap-2 rounded-2xl px-2 py-5 text-center"
+                style={{ animationDelay: `${index * 35}ms` }}
+              >
+                <span className="text-2xl">{category.icon}</span>
+                <span className="text-xs font-semibold leading-tight text-foreground/85 sm:text-[13px]">
+                  {categoryName(category, lang)}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
+        {/* ---------------- AI RADAR ---------------- */}
+        {radar.length > 0 && (
+          <section>
+            <SectionHeading
+              title={t.radar.homeTitle}
+              subtitle={t.radar.homeSub}
+              href="/radar"
+              linkLabel={t.radar.viewAll}
+              accent="violet"
+            />
+            <RadarStrip items={radar} />
+          </section>
+        )}
+
         {/* ---------------- RECOMMENDED AI ---------------- */}
         {recommended.length > 0 && (
           <section>
@@ -205,40 +239,6 @@ export default async function Home() {
                 <ServiceCard key={service._id} service={service} delay={index * 35} />
               ))}
             </div>
-          </section>
-        )}
-
-        {/* ---------------- CATEGORIES ---------------- */}
-        <section>
-          <SectionHeading title={t.home.quickCategories} accent="cyan" />
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
-            {categories.map((category, index) => (
-              <Link
-                key={category._id}
-                href={`/category/${category.slug}`}
-                className="glass glass-hover animate-fade-up flex flex-col items-center gap-2 rounded-2xl px-2 py-5 text-center"
-                style={{ animationDelay: `${index * 35}ms` }}
-              >
-                <span className="text-2xl">{category.icon}</span>
-                <span className="text-xs font-semibold leading-tight text-foreground/85 sm:text-[13px]">
-                  {categoryName(category, lang)}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-
-        {/* ---------------- AI RADAR ---------------- */}
-        {radar.length > 0 && (
-          <section>
-            <SectionHeading
-              title={t.radar.homeTitle}
-              subtitle={t.radar.homeSub}
-              href="/radar"
-              linkLabel={t.radar.viewAll}
-              accent="violet"
-            />
-            <RadarStrip items={radar} />
           </section>
         )}
 
