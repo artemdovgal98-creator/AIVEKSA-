@@ -6,7 +6,7 @@ import { bannerImage } from "@/lib/localize";
 import type { BannerRecord } from "@/lib/types";
 
 /** Plans with the `no_ads` rule hide every ad slot — checked once per request. */
-const viewerHasNoAds = cache(async (): Promise<boolean> => {
+export const viewerHasNoAds = cache(async (): Promise<boolean> => {
   const sessionUser = await getSessionUser();
   if (!sessionUser?.id) return false;
   return hasAccess(sessionUser, "no_ads").catch((err) => {

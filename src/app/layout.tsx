@@ -19,6 +19,8 @@ import { TelegramMiniApp } from "@/components/site/TelegramMiniApp";
 import { SiteCodeTags } from "@/components/site/SiteCodeTags";
 import { parseSiteCode, type ParsedTag } from "@/lib/site-code";
 import { getActiveSiteTags, tagsForRequest } from "@/lib/site-tags";
+import { AdSlot } from "@/components/site/AdSlot";
+import { getAdSlotsConfig } from "@/lib/ad-slots";
 
 const unbounded = Unbounded({
   variable: "--font-unbounded",
@@ -95,6 +97,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     });
     headTags = tagsForRequest(activeTags, "head", pathname).flatMap((tag) => parseSiteCode(tag.code));
     bodyTags = tagsForRequest(activeTags, "body", pathname).flatMap((tag) => parseSiteCode(tag.code));
+
+    // Admin → Ads → "Код на всю страницу" (Social Bar): one site-wide script, same <meta>/<script>-only rule as Site Tags.
+    const adSlots = await getAdSlotsConfig().catch((err) => {
+      console.error("[layout] ad slots config unavailable:", err);
+      return null;
+    });
+    if (adSlots?.socialBarCode) bodyTags = [...bodyTags, ...parseSiteCode(adSlots.socialBarCode)];
   }
 
   return (
@@ -114,7 +123,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <FavoritesProvider>
             <div className="min-h-screen flex flex-col">
               <SiteHeader />
+              {!isAdminPage && <AdSlot position="top" />}
               <main className="flex-1 pb-safe">{children}</main>
+              {!isAdminPage && <AdSlot position="bottom" />}
               <SiteFooter />
               <BottomNav />
             </div>
