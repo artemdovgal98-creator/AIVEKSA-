@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { ExternalLink, Eye, EyeOff, Handshake, Pencil, Plus, Search } from "lucide-react";
+import { Eye, EyeOff, Handshake, Pencil, Plus, Search } from "lucide-react";
 import { api } from "@/lib/api";
 import { useLang } from "@/lib/i18n/context";
 import { useAdminDict } from "@/lib/i18n/admin-dict";
@@ -61,8 +61,17 @@ export default function AdminCatalogPage() {
     load();
   }, [load]);
 
+  const [noCategoryOnly, setNoCategoryOnly] = useState(false);
+  const [noLinkOnly, setNoLinkOnly] = useState(false);
+
   const counts = useMemo(
-    () => ({ all: items.length, affiliate: items.filter((s) => s.partner_live).length, main: items.filter((s) => !s.partner_live).length }),
+    () => ({
+      all: items.length,
+      affiliate: items.filter((s) => s.partner_live).length,
+      main: items.filter((s) => !s.partner_live).length,
+      noCategory: items.filter((s) => !s.category).length,
+      noLink: items.filter((s) => !s.partner_url).length,
+    }),
     [items]
   );
 
@@ -71,14 +80,16 @@ export default function AdminCatalogPage() {
     return items.filter((service) => {
       if (scope === "affiliate" && !service.partner_live) return false;
       if (scope === "main" && service.partner_live) return false;
+      if (noCategoryOnly && service.category) return false;
+      if (noLinkOnly && service.partner_url) return false;
       if (!q) return true;
       return [service.name, service.slug, service.title_ru, service.title_uk, service.title_en]
         .filter(Boolean)
         .some((value) => String(value).toLowerCase().includes(q));
     });
-  }, [items, scope, query]);
+  }, [items, scope, query, noCategoryOnly, noLinkOnly]);
 
-  useEffect(() => setShown(PAGE), [scope, query]);
+  useEffect(() => setShown(PAGE), [scope, query, noCategoryOnly, noLinkOnly]);
 
   const openCreate = () => setDialog({ open: true, id: null, initial: EMPTY_FORM });
   const openEdit = (service: AdminService) =>
@@ -122,7 +133,7 @@ export default function AdminCatalogPage() {
         }
       />
 
-      <div className="mb-4 flex flex-wrap items-center gap-3">
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         <SegmentedScope
           value={scope}
           onChange={setScope}
@@ -132,6 +143,26 @@ export default function AdminCatalogPage() {
             { value: "affiliate", label: d.scopeAffiliate, count: counts.affiliate },
           ]}
         />
+        {counts.noCategory > 0 && (
+          <button
+            type="button"
+            onClick={() => setNoCategoryOnly((v) => !v)}
+            className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+              noCategoryOnly ? "border-[color:var(--neon-violet)] bg-violet-500/15 text-white" : "border-white/10 text-foreground/55 hover:text-white"
+            }`}
+          >
+            {d.filterNoCategory} ({counts.noCategory})
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={() => setNoLinkOnly((v) => !v)}
+          className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+            noLinkOnly ? "border-[color:var(--neon-violet)] bg-violet-500/15 text-white" : "border-white/10 text-foreground/55 hover:text-white"
+          }`}
+        >
+          {d.filterNoLink} ({counts.noLink})
+        </button>
         <div className="relative min-w-[200px] flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-foreground/35" />
           <input className={`${inputClass} pl-9`} placeholder={a.common.search} value={query} onChange={(e) => setQuery(e.target.value)} />
@@ -152,9 +183,9 @@ export default function AdminCatalogPage() {
             return (
               <article
                 key={service._id}
-                className={`glass glass-hover flex flex-col rounded-2xl p-4 transition ${hidden ? "opacity-60" : ""}`}
+                className={`glass glass-hover flex h-full flex-col rounded-2xl p-4 transition ${hidden ? "opacity-60" : ""}`}
               >
-                <div className="flex items-start gap-3">
+                <div className="flex items-start gap-2.5">
                   <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-white/10 bg-white/5">
                     {logo ? (
                       <img src={logo} alt="" className="h-full w-full object-contain p-1" />
@@ -163,48 +194,52 @@ export default function AdminCatalogPage() {
                     )}
                   </span>
                   <div className="min-w-0 flex-1">
-                    <h3 className="truncate font-display text-sm font-bold text-white">{title}</h3>
-                    <p className="mt-0.5 truncate text-[11px] text-foreground/45">
-                      {category ? `${category.icon || ""} ${categoryName(category, lang)}` : d.noCategory}
-                    </p>
-                    <div className="mt-1.5 flex flex-wrap gap-1">
-                      <Pill tone={partnerOn ? (service.partner_live ? "green" : "amber") : "gray"}>
-                        {partnerOn ? d.partnerOn : d.partnerOff}
-                      </Pill>
-                      {partnerOn && <StatusPill status={service.partner_status} label={service.partner_status ? a.market.status[service.partner_status] : undefined} />}
-                      {hidden && <Pill tone="red">{d.hidden}</Pill>}
-                    </div>
+                    <h3 className="line-clamp-2 min-h-[2.1rem] font-display text-sm font-bold leading-tight text-white">{title}</h3>
+                    {category && (
+                      <p className="mt-0.5 truncate text-[11px] text-foreground/45">
+                        {category.icon || ""} {categoryName(category, lang)}
+                      </p>
+                    )}
                   </div>
+                  <button
+                    type="button"
+                    title={hidden ? d.hidden : d.visible}
+                    className="shrink-0 rounded-lg p-1.5 text-foreground/45 transition hover:bg-white/8 hover:text-white"
+                    onClick={() => toggleVisible(service)}
+                  >
+                    {hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+
+                <div className="mt-2 flex flex-nowrap items-center gap-1 overflow-hidden">
+                  <Pill tone={partnerOn ? (service.partner_live ? "green" : "amber") : "gray"}>
+                    {partnerOn ? d.partnerOn : d.partnerOff}
+                  </Pill>
+                  {partnerOn && <StatusPill status={service.partner_status} label={service.partner_status ? a.market.status[service.partner_status] : undefined} />}
+                  {hidden && <Pill tone="red">{d.hidden}</Pill>}
+                  {!category && <Pill tone="gray">{d.noCategory}</Pill>}
                 </div>
 
                 <p className="mt-3 line-clamp-2 min-h-[2.5rem] text-xs leading-relaxed text-foreground/55">
                   {serviceDescription(service, lang) || "—"}
                 </p>
 
-                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/6 pt-3">
-                  <button type="button" className={`${ghostButton} px-3 py-1.5 text-xs`} onClick={() => openEdit(service)}>
+                <div className="mt-auto flex items-center gap-2 border-t border-white/6 pt-3">
+                  <button type="button" className={`${ghostButton} flex-1 px-3 py-1.5 text-xs`} onClick={() => openEdit(service)}>
                     <Pencil className="h-3.5 w-3.5" />
                     {a.common.edit.toUpperCase()}
                   </button>
                   {partnerHref ? (
-                    <a href={partnerHref} target="_blank" rel="noopener noreferrer" className={`${ghostButton} px-3 py-1.5 text-xs text-emerald-300`}>
+                    <a href={partnerHref} target="_blank" rel="noopener noreferrer" className={`${ghostButton} flex-1 px-3 py-1.5 text-xs text-emerald-300`}>
                       <Handshake className="h-3.5 w-3.5" />
                       {d.partnerLink}
                     </a>
-                  ) : service.official_url ? (
-                    <a href={service.official_url} target="_blank" rel="noopener noreferrer nofollow" className={`${ghostButton} px-3 py-1.5 text-xs`}>
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      {d.openWebsite}
-                    </a>
-                  ) : null}
-                  <button
-                    type="button"
-                    title={hidden ? d.hidden : d.visible}
-                    className="ml-auto rounded-lg p-1.5 text-foreground/45 transition hover:bg-white/8 hover:text-white"
-                    onClick={() => toggleVisible(service)}
-                  >
-                    {hidden ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+                  ) : (
+                    <button type="button" disabled title={d.noLinkYet} className={`${ghostButton} flex-1 px-3 py-1.5 text-xs opacity-40`}>
+                      <Handshake className="h-3.5 w-3.5" />
+                      {d.partnerLink}
+                    </button>
+                  )}
                 </div>
               </article>
             );

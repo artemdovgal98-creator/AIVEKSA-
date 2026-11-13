@@ -141,11 +141,11 @@ export default function AdminUsersPage() {
                         )}
                       </div>
                     ) : (
-                      <span className="text-xs text-foreground/35">N/A</span>
+                      <span className="text-xs text-foreground/35">—</span>
                     )}
                   </td>
                   <td className="px-3 py-3 text-right font-bold text-white">{user.credits}</td>
-                  <td className="px-3 py-3 text-xs text-foreground/50">{user.last_active ? fmtDate(user.last_active) : "N/A"}</td>
+                  <td className="px-3 py-3 text-xs text-foreground/50">{user.last_active ? fmtDate(user.last_active) : "—"}</td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-1">
                       <IconButton title={d.adjustCredits} onClick={() => { setForm({ amount: "", reason: "", plan_id: "" }); setAction({ type: "credits", user }); }}>

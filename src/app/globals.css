@@ -217,7 +217,10 @@ body {
 
 /* ---------- Mobile overflow safety net ----------
    Long unbroken strings (URLs, slugs, offer names) used to push cards past the
-   viewport edge. Media and embedded content can never exceed their box either. */
+   viewport edge. `break-word` only kicks in as a fallback when a single word
+   truly cannot fit — unlike `anywhere`, it never slices an ordinary word that
+   would simply wrap to the next line (no more "Сред-а" / "Пользо-ватели").
+   Media and embedded content can never exceed their box either. */
 body,
 button,
 a,
@@ -227,8 +230,7 @@ li,
 dd, dt,
 span,
 label {
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 img,

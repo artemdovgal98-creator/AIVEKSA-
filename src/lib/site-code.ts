@@ -1,11 +1,11 @@
 import "server-only";
-import { readSetting } from "@/lib/settings";
-import { SITE_CODE_SLOTS, siteCodeSettingKey, type SiteCodeScope } from "@/lib/site-code-slots";
 
 /**
- * Admin-managed third-party code (ad-network verification meta tags, analytics
- * snippets, chat/ad widgets). Stored in admin_settings, one row per slot (see
- * SITE_CODE_SLOTS); only <meta> and <script> tags are accepted and rendered.
+ * Parser for admin-provided third-party code (ad-network verification meta
+ * tags, analytics snippets, chat/ad widgets). Only <meta> and <script> tags
+ * are accepted and rendered — see `src/lib/site-tags.ts` for where the tags
+ * themselves are stored and `src/components/site/SiteCodeTags.tsx` for how
+ * they are rendered.
  */
 export interface ParsedTag {
   kind: "meta" | "script";
@@ -15,6 +15,7 @@ export interface ParsedTag {
 
 const ATTR_RE = /([^\s=/>"']+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g;
 const TAG_RE = /<meta\b([^>]*?)\/?>|<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi;
+const ANY_TAG_RE = /<[a-z][^>]*>/i;
 
 function parseAttrs(raw: string): Record<string, string | true> {
   const attrs: Record<string, string | true> = {};
@@ -35,27 +36,8 @@ export function parseSiteCode(code: string): ParsedTag[] {
   return tags;
 }
 
-let cache: { at: number; value: Record<string, string> } | null = null;
-
-export function invalidateSiteCode() {
-  cache = null;
-}
-
-/** Raw code per slot key, e.g. `{ head: "...", head_analytics: "...", body_chat: "..." }`. */
-export async function getSiteCode(): Promise<Record<string, string>> {
-  if (cache && Date.now() - cache.at < 30_000) return cache.value;
-  const entries = await Promise.all(
-    SITE_CODE_SLOTS.map(async (slot) => [slot.key, (await readSetting(siteCodeSettingKey(slot.key))) || ""] as const)
-  );
-  const value = Object.fromEntries(entries);
-  cache = { at: Date.now(), value };
-  return value;
-}
-
-/** Concatenates every slot that belongs to the given scope, in declaration order. */
-export function getSiteCodeByScope(code: Record<string, string>, scope: SiteCodeScope): string {
-  return SITE_CODE_SLOTS.filter((slot) => slot.scope === scope)
-    .map((slot) => code[slot.key] || "")
-    .filter(Boolean)
-    .join("\n");
+/** True if anything other than a <meta> or <script> tag is present in the code. */
+export function hasDisallowedTags(code: string): boolean {
+  const remainder = (code || "").replace(TAG_RE, "");
+  return ANY_TAG_RE.test(remainder);
 }

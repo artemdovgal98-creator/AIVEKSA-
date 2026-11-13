@@ -18,12 +18,10 @@ import {
   Repeat,
   Send,
   Settings,
-  Share2,
   ShoppingBag,
   Sparkles,
   Tags,
   Users,
-  Webhook,
   ArrowLeftRight,
 } from "lucide-react";
 
@@ -41,10 +39,8 @@ const MAIN: { href: string; key: MenuKey; icon: typeof BarChart3 }[] = [
   { href: "/admin/services", key: "catalog", icon: Sparkles },
   { href: "/admin/categories", key: "categories", icon: LayoutGrid },
   { href: "/admin/affiliates", key: "marketplace", icon: Handshake },
-  { href: "/admin/social", key: "social", icon: Share2 },
   { href: "/admin/credits", key: "credits", icon: Coins },
   { href: "/admin/telegram", key: "telegram", icon: Send },
-  { href: "/admin/webhooks", key: "webhooks", icon: Webhook },
   { href: "/admin/settings", key: "settings", icon: Settings },
 ];
 

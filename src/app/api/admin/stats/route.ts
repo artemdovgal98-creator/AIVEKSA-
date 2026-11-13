@@ -2,39 +2,20 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { totalumSdk } from "@/lib/totalum";
 import { readCount, readSum } from "@/lib/aggregate";
-import { loadConversions, totalsFor } from "@/lib/earnings";
-import { getLiveOfferServiceIds, loadOfferMetrics, revenueScalar, epcOf, crOf } from "@/lib/offers";
+import { loadConversions, totalsFor, totalsByService, daysAgoIso } from "@/lib/earnings";
+import { getLiveOfferServiceIds, loadOfferMetrics, revenueScalar } from "@/lib/offers";
 import { isPaymentsConfigured } from "@/lib/billing";
-import type { CategoryRecord, ClickRecord, Currency } from "@/lib/types";
+import { addMoney, type Money } from "@/lib/money";
+import { findSuspiciousClicks } from "@/lib/suspicious-clicks";
+import { EARNED_STATUSES } from "@/lib/types";
+import type { CategoryRecord, Currency } from "@/lib/types";
 
 const refId = (value: any): string => (value && typeof value === "object" ? value._id : value) || "";
+const pad = (n: number) => String(n).padStart(2, "0");
+const keyOf = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+const dateKeyOfIso = (iso: string) => keyOf(new Date(iso));
 
 export const dynamic = "force-dynamic";
-
-function daysAgoIso(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() - days);
-  return date.toISOString();
-}
-
-function startOfTodayIso(): string {
-  const date = new Date();
-  date.setHours(0, 0, 0, 0);
-  return date.toISOString();
-}
-
-async function countClicksSince(iso?: string): Promise<number> {
-  // manual_entry === "yes" marks a commission recorded by the owner / a webhook,
-  // not a real visitor click — it must never be counted as traffic.
-  const filter: Record<string, any> = { manual_entry: { ne: "yes" } };
-  if (iso) filter.clicked_at = { gte: iso };
-  const result = await totalumSdk.crud.query("clicks", {
-    _filter: filter,
-    _aggregate: { _count: true },
-  });
-  if (result.errors) console.error("[api/admin/stats] click count errors:", result.errors);
-  return readCount(result);
-}
 
 /** Dashboard metrics — every number comes from real records, nothing is fabricated. */
 export async function GET() {
@@ -42,31 +23,97 @@ export async function GET() {
     const admin = await requireAdmin();
     if (!admin) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
 
+    const monthAgoIso = daysAgoIso(30);
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+    const yesterdayStart = new Date(todayStart.getTime() - 86_400_000);
+    const weekStart = new Date(Date.now() - 7 * 86_400_000);
+    const monthStart = new Date(Date.now() - 30 * 86_400_000);
+
     const [
       servicesTotal,
       servicesActive,
       usersTotal,
       viewsSum,
       withAffiliate,
-      clicksTotal,
-      clicksToday,
-      clicksWeek,
-      clicksMonth,
+      clicksRows,
+      conversions,
+      suspicious,
     ] = await Promise.all([
       totalumSdk.crud.query("services", { _aggregate: { _count: true } }),
       totalumSdk.crud.query("services", { _filter: { active: "yes" }, _aggregate: { _count: true } }),
       totalumSdk.crud.query("user", { _aggregate: { _count: true } }),
       totalumSdk.crud.query("services", { _aggregate: { _sum: { views: true } } }),
-      // Affiliate services = services whose partner link is ON and backed by a live offer.
       getLiveOfferServiceIds(),
-      countClicksSince(),
-      countClicksSince(startOfTodayIso()),
-      countClicksSince(daysAgoIso(7)),
-      countClicksSince(daysAgoIso(30)),
+      totalumSdk.crud.query("clicks", {
+        _filter: { manual_entry: { ne: "yes" }, clicked_at: { gte: monthAgoIso } },
+        _select: { clicked_at: true, session_id: true },
+        _sort: { clicked_at: "desc" },
+        _limit: 20000,
+      }),
+      loadConversions(),
+      findSuspiciousClicks(monthAgoIso),
     ]);
+    if (clicksRows.errors) console.error("[api/admin/stats] clicks errors:", clicksRows.errors);
 
-    // Real commissions reported for these services (nothing estimated).
-    const conversions = await loadConversions();
+    const totalServices = readCount(servicesTotal);
+    const totalViews = readSum(viewsSum, "views");
+    const affiliateCount = withAffiliate.size;
+
+    // ---- Periods (today / yesterday / 7d / 30d) — clicks + unique sessions ----
+    const perDay = new Map<string, { clicks: number; sessions: Set<string> }>();
+    const sessSets = { today: new Set<string>(), yesterday: new Set<string>(), week: new Set<string>(), month: new Set<string>() };
+    const counts = { today: 0, yesterday: 0, week: 0, month: 0 };
+
+    for (const row of (clicksRows.data || []) as any[]) {
+      const ts = Date.parse(row.clicked_at || "");
+      if (!Number.isFinite(ts)) continue;
+      const key = dateKeyOfIso(row.clicked_at);
+      const bucket = perDay.get(key) || { clicks: 0, sessions: new Set<string>() };
+      bucket.clicks += 1;
+      const sid = row.session_id || "";
+      if (sid) bucket.sessions.add(sid);
+      perDay.set(key, bucket);
+
+      if (ts >= todayStart.getTime()) {
+        counts.today += 1;
+        if (sid) sessSets.today.add(sid);
+      } else if (ts >= yesterdayStart.getTime()) {
+        counts.yesterday += 1;
+        if (sid) sessSets.yesterday.add(sid);
+      }
+      if (ts >= weekStart.getTime()) {
+        counts.week += 1;
+        if (sid) sessSets.week.add(sid);
+      }
+      if (ts >= monthStart.getTime()) {
+        counts.month += 1;
+        if (sid) sessSets.month.add(sid);
+      }
+    }
+
+    // ---- Revenue per day (approved commissions only) ----
+    const revenueByDay = new Map<string, Money>();
+    for (const row of conversions) {
+      if (!EARNED_STATUSES.includes(row.conversion_status) || !row.clicked_at) continue;
+      const key = dateKeyOfIso(row.clicked_at);
+      const money = revenueByDay.get(key) || {};
+      addMoney(money, row.currency, row.earned_amount);
+      revenueByDay.set(key, money);
+    }
+
+    const daily = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(todayStart.getTime() - i * 86_400_000);
+      const key = keyOf(d);
+      const bucket = perDay.get(key);
+      return {
+        date: key,
+        clicks: bucket?.clicks || 0,
+        unique: bucket?.sessions.size || 0,
+        revenue: revenueByDay.get(key) || {},
+      };
+    });
+
     const earnings = {
       allTime: totalsFor(conversions),
       week: totalsFor(conversions, daysAgoIso(7)),
@@ -74,11 +121,7 @@ export async function GET() {
       entries: conversions.length,
     };
 
-    const totalServices = readCount(servicesTotal);
-    const totalViews = readSum(viewsSum, "views");
-    const affiliateCount = withAffiliate.size;
-
-    // Per-service click counts, computed by the database (no N+1 loop).
+    // ---- Top 10 (services ranked by clicks, carrying real commission) ----
     const topResult = await totalumSdk.crud.query("services", {
       _limit: 300,
       _select: { name: true, title_ru: true, title_en: true, slug: true, logo_url: true },
@@ -87,18 +130,22 @@ export async function GET() {
     });
     if (topResult.errors) console.error("[api/admin/stats] top services errors:", topResult.errors);
 
-    const ranked = ((topResult.data || []) as any[])
-      .map((service) => ({
-        _id: service._id,
-        name: service.name || service.title_ru || service.title_en || service.slug,
-        slug: service.slug,
-        logo_url: service.logo_url,
-        category: service.category as CategoryRecord | null,
-        clicks: service._count?.clicks || 0,
-      }))
-      .sort((a, b) => b.clicks - a.clicks);
+    const byServiceRevenue = totalsByService(conversions);
+    const ranked = ((topResult.data || []) as any[]).map((service) => ({
+      _id: service._id,
+      name: service.name || service.title_ru || service.title_en || service.slug,
+      slug: service.slug,
+      logo_url: service.logo_url,
+      category: service.category as CategoryRecord | null,
+      clicks: service._count?.clicks || 0,
+      revenue: byServiceRevenue.get(service._id)?.earned || {},
+    }));
 
-    const topServices = ranked.filter((service) => service.clicks > 0).slice(0, 10);
+    const top10 = ranked
+      .filter((s) => s.clicks > 0 || revenueScalar(s.revenue) > 0)
+      .sort((a, b) => revenueScalar(b.revenue) - revenueScalar(a.revenue) || b.clicks - a.clicks)
+      .slice(0, 10)
+      .map((s) => ({ _id: s._id, name: s.name, slug: s.slug, logo_url: s.logo_url, clicks: s.clicks, revenue: s.revenue }));
 
     const categoryTotals = new Map<string, { category: CategoryRecord | null; clicks: number }>();
     for (const service of ranked) {
@@ -115,41 +162,46 @@ export async function GET() {
     const recentResult = await totalumSdk.crud.query("clicks", {
       _filter: { manual_entry: { ne: "yes" } },
       _sort: { clicked_at: "desc" },
-      _limit: 20,
+      _limit: 10,
       service: true,
-      user: true,
     });
     if (recentResult.errors) console.error("[api/admin/stats] recent clicks errors:", recentResult.errors);
+    const recentClicks = ((recentResult.data || []) as any[]).map((click) => {
+      const service = typeof click.service === "object" ? click.service : null;
+      return {
+        _id: click._id,
+        name: service?.name || service?.title_ru || service?.title_en || service?.slug || "—",
+        country: click.country || "",
+        device: click.device || "",
+        clicked_at: click.clicked_at || click.createdAt || "",
+      };
+    });
 
-    // ---- Billing (real orders / subscriptions only) ----
-    const monthAgo = daysAgoIso(30);
-    const [sessions, activeSubs, ordersAll, ordersPaid, paidByCurrency, recentPayments, failedPayments, subsByPlan, plans] =
-      await Promise.all([
-        totalumSdk.crud.query("session", { _filter: { updatedAt: { gte: monthAgo } }, _limit: 5000 }),
-        totalumSdk.crud.query("subscriptions", {
-          _filter: { status: { in: ["active", "paid"] }, end_date: { gte: new Date().toISOString() } },
-          _aggregate: { _count: true },
-        }),
-        totalumSdk.crud.query("orders", { _aggregate: { _count: true } }),
-        totalumSdk.crud.query("orders", { _filter: { status: "paid" }, _aggregate: { _count: true } }),
-        totalumSdk.crud.query("orders", { _filter: { status: "paid" }, _groupBy: "currency", _aggregate: { _sum: { amount: true } }, _limit: 10 }),
-        totalumSdk.crud.query("orders", { _filter: { status: "paid" }, _sort: { paid_at: "desc" }, _limit: 8, user: true, plan: true }),
-        totalumSdk.crud.query("orders", { _filter: { status: "failed" }, _sort: { createdAt: "desc" }, _limit: 8, user: true, plan: true }),
-        totalumSdk.crud.query("orders", { _filter: { status: "paid" }, _groupBy: "plan", _aggregate: { _count: true, _sum: { amount: true } }, _limit: 50 }),
-        totalumSdk.crud.query("plans", { _limit: 50 }),
-      ]);
-    const activeUserIds = new Set(((sessions.data || []) as any[]).map((row) => refId(row.user_id)).filter(Boolean));
-    const revenue: Partial<Record<Currency, number>> = {};
-    for (const row of (paidByCurrency.data || []) as any[]) {
-      const currency = (row._group?.currency || "usd") as Currency;
-      revenue[currency] = Number(row._aggregate?._sum?.amount) || 0;
+    // ---- Affiliate performance (EPC / CR for the Money card) ----
+    const metrics = await loadOfferMetrics().catch((err) => {
+      console.error("[api/admin/stats] offer metrics failed:", err);
+      return new Map();
+    });
+    let affClicks = 0;
+    let affConversions = 0;
+    for (const m of metrics.values()) {
+      affClicks += m.clicks;
+      affConversions += m.conversions;
     }
-    const planNames = new Map(((plans.data || []) as any[]).map((plan) => [plan._id, plan.name]));
-    const topPlans = ((subsByPlan.data || []) as any[])
-      .map((row) => ({ name: planNames.get(refId(row._group?.plan)) || "—", orders: Number(row._aggregate?._count) || 0 }))
-      .sort((a, b) => b.orders - a.orders)
-      .slice(0, 5);
-    const slimOrder = (order: any) => ({
+    const affEpc: Money | null = affClicks
+      ? Object.fromEntries(Object.entries(earnings.allTime.earned).map(([currency, value]) => [currency, Number(((value || 0) / affClicks).toFixed(4))]))
+      : null;
+    const affCr = affClicks ? Number(((affConversions / affClicks) * 100).toFixed(2)) : null;
+
+    // ---- Payments — merged "recent payments" (shown only when data exists) ----
+    const recentOrders = await totalumSdk.crud.query("orders", {
+      _sort: { createdAt: "desc" },
+      _limit: 8,
+      user: true,
+      plan: true,
+    });
+    if (recentOrders.errors) console.error("[api/admin/stats] recent orders errors:", recentOrders.errors);
+    const payments = ((recentOrders.data || []) as any[]).map((order) => ({
       _id: order._id,
       order_number: order.order_number,
       amount: order.amount,
@@ -158,83 +210,42 @@ export async function GET() {
       date: order.paid_at || order.createdAt,
       user: order.user?.email || null,
       plan: order.plan?.name || null,
-    });
-
-    // ---- Affiliate Marketplace (clicks attributed to offers) ----
-    const metrics = await loadOfferMetrics().catch((err) => {
-      console.error("[api/admin/stats] offer metrics failed:", err);
-      return new Map();
-    });
-    let affClicks = 0;
-    let affConversions = 0;
-    const affRevenue: Partial<Record<Currency, number>> = {};
-    for (const m of metrics.values()) {
-      affClicks += m.clicks;
-      affConversions += m.conversions;
-      for (const [currency, value] of Object.entries(m.revenue)) {
-        affRevenue[currency as Currency] = (affRevenue[currency as Currency] || 0) + (Number(value) || 0);
-      }
-    }
-    const offerIds = Array.from(metrics.entries())
-      .filter(([, m]) => m.clicks > 0 || m.conversions > 0)
-      .sort((a, b) => revenueScalar(b[1].revenue) - revenueScalar(a[1].revenue) || b[1].clicks - a[1].clicks)
-      .slice(0, 8);
-    const offerRows = offerIds.length
-      ? await totalumSdk.crud.query("affiliate_offers", { _filter: { _id: { in: offerIds.map(([id]) => id) } }, _limit: 8, network: { _omit: { postback_secret: true } } })
-      : { data: [] as any[] };
-    const offerById = new Map(((offerRows.data || []) as any[]).map((offer) => [offer._id, offer]));
-    const topOffers = offerIds.map(([id, m]) => ({
-      _id: id,
-      name: offerById.get(id)?.offer_name || "—",
-      network: offerById.get(id)?.network?.name || null,
-      clicks: m.clicks,
-      conversions: m.conversions,
-      revenue: m.revenue,
-      epc: epcOf(m),
-      cr: crOf(m),
     }));
+
+    // ---- Active users (sessions touched in the last 30 days) ----
+    const sessions = await totalumSdk.crud.query("session", { _filter: { updatedAt: { gte: monthAgoIso } }, _limit: 5000 });
+    const activeUserIds = new Set(((sessions.data || []) as any[]).map((row) => refId(row.user_id)).filter(Boolean));
 
     return NextResponse.json({
       ok: true,
       data: {
         paymentsConfigured: await isPaymentsConfigured(),
+        usersTotal: readCount(usersTotal),
         activeUsers: activeUserIds.size,
-        activeSubscriptions: readCount(activeSubs),
-        ordersTotal: readCount(ordersAll),
-        ordersPaid: readCount(ordersPaid),
-        revenue,
-        topPlans,
-        recentPayments: ((recentPayments.data || []) as any[]).map(slimOrder),
-        failedPayments: ((failedPayments.data || []) as any[]).map(slimOrder),
-        affiliate: {
-          services: affiliateCount,
-          clicks: affClicks,
-          conversions: affConversions,
-          revenue: affRevenue,
-          // EPC per currency — currencies are never summed.
-          epc: affClicks
-            ? Object.fromEntries(Object.entries(affRevenue).map(([currency, value]) => [currency, Number(((value || 0) / affClicks).toFixed(4))]))
-            : null,
-          cr: affClicks ? Number(((affConversions / affClicks) * 100).toFixed(2)) : null,
-          ctr: totalViews > 0 ? Number(((affClicks / totalViews) * 100).toFixed(2)) : null,
-        },
-        topOffers,
+        views: totalViews,
         servicesTotal: totalServices,
         servicesActive: readCount(servicesActive),
-        usersTotal: readCount(usersTotal),
-        views: totalViews,
-        clicksTotal,
-        clicksToday,
-        clicksWeek,
-        clicksMonth,
-        earnings,
         withAffiliate: affiliateCount,
         withoutAffiliate: Math.max(totalServices - affiliateCount, 0),
-        // CTR only makes sense once real page views exist.
-        ctr: totalViews > 0 ? Number(((clicksTotal / totalViews) * 100).toFixed(2)) : null,
-        topServices,
+        periods: {
+          today: { clicks: counts.today, unique: sessSets.today.size },
+          yesterday: { clicks: counts.yesterday, unique: sessSets.yesterday.size },
+          week: { clicks: counts.week, unique: sessSets.week.size },
+          month: { clicks: counts.month, unique: sessSets.month.size },
+        },
+        daily,
+        money: {
+          revenue: earnings.allTime.earned,
+          pending: earnings.allTime.pending,
+          conversions: affConversions,
+          epc: affEpc,
+          cr: affCr,
+        },
+        top10,
         topCategories,
-        recentClicks: (recentResult.data || []) as unknown as ClickRecord[],
+        recentClicks,
+        suspicious,
+        payments,
       },
     });
   } catch (err: any) {

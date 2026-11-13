@@ -61,8 +61,9 @@ export async function recordWebhookEvent(event: {
   if (created.errors) console.error("[webhook-events] failed to record event:", created.errors);
 }
 
-export async function listWebhookEvents(limit = 50, offset = 0): Promise<WebhookEventRecord[]> {
+export async function listWebhookEvents(limit = 50, offset = 0, provider?: string): Promise<WebhookEventRecord[]> {
   const result = await totalumSdk.crud.query("webhook_events", {
+    ...(provider ? { _filter: { provider } } : {}),
     _sort: { createdAt: "desc" },
     _limit: Math.min(Math.max(limit, 1), 100),
     _offset: Math.max(offset, 0),

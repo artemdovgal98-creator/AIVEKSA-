@@ -5,25 +5,19 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { Crown, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
-import { openPaddleCheckout, type PaddleCheckoutData } from "@/lib/paddle-client";
 import { useLang } from "@/lib/i18n/context";
 import { publicDict } from "@/lib/i18n/public-dict";
 
-/**
- * Opens the Paddle checkout for a plan. Only the plan slug is sent — the price
- * is always read from the database on the server.
- */
-export function ProCheckoutButton({
-  planSlug,
-  signedIn,
-  paymentsConfigured,
-  activeUntil,
-}: {
+export interface ProCheckoutButtonProps {
   planSlug: string;
   signedIn: boolean;
   paymentsConfigured: boolean;
   activeUntil: string | null;
-}) {
+  period: "month" | "year";
+}
+
+/** Redirects to the NOWPayments hosted invoice. Only the plan slug + period are sent — prices always come from the server. */
+export function ProCheckoutButton({ planSlug, signedIn, paymentsConfigured, activeUntil, period }: ProCheckoutButtonProps) {
   const { lang } = useLang();
   const p = publicDict(lang).pro;
   const [busy, setBusy] = useState(false);
@@ -47,7 +41,7 @@ export function ProCheckoutButton({
           <Crown className="h-5 w-5" />
           {p.subscribe}
         </button>
-        <p className="text-xs font-bold uppercase tracking-wide text-amber-300">{p.notConfigured} · NOT CONFIGURED</p>
+        <p className="text-xs font-bold uppercase tracking-wide text-amber-300">{p.notConfigured}</p>
         <p className="text-xs text-foreground/50">{p.notConfiguredSub}</p>
       </div>
     );
@@ -64,21 +58,15 @@ export function ProCheckoutButton({
 
   const start = async () => {
     setBusy(true);
-    const response = await api.post<PaddleCheckoutData>("/api/billing/checkout", { plan: planSlug });
-    if (!response.ok || !response.data?.priceId) {
+    const response = await api.post<{ paymentUrl: string }>("/api/billing/checkout", { plan: planSlug, period });
+    if (!response.ok || !response.data?.paymentUrl) {
       setBusy(false);
       console.error("[pro] checkout failed:", response.error);
       toast.error(response.error === "NOT_CONFIGURED" ? p.notConfigured : String(response.error || "Error"));
       return;
     }
-    console.log("[pro] opening Paddle checkout");
-    try {
-      await openPaddleCheckout(response.data, lang, () => setBusy(false));
-    } catch (err) {
-      console.error("[pro] Paddle.js failed:", err);
-      toast.error(String((err as Error)?.message || "Checkout error"));
-    }
-    setBusy(false);
+    console.log("[pro] redirecting to NOWPayments invoice");
+    window.location.href = response.data.paymentUrl;
   };
 
   return (

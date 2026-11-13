@@ -18,6 +18,7 @@ const EMPTY = {
   name: "",
   slug: "",
   price: "9.99",
+  yearly_price: "",
   currency: "usd",
   duration_days: "30",
   description: "",
@@ -62,6 +63,7 @@ export default function AdminPlansPage() {
     name: plan.name || "",
     slug: plan.slug || "",
     price: String(plan.price ?? 0),
+    yearly_price: plan.yearly_price ? String(plan.yearly_price) : "",
     currency: plan.currency || "usd",
     duration_days: String(plan.duration_days ?? 30),
     description: plan.description || "",
@@ -83,6 +85,7 @@ export default function AdminPlansPage() {
     const body = {
       ...draft,
       price: Number(draft.price),
+      yearly_price: draft.yearly_price ? Number(draft.yearly_price) : 0,
       duration_days: Number(draft.duration_days),
       ai_credits: Number(draft.ai_credits),
       social_limit: Number(draft.social_limit),
@@ -119,7 +122,7 @@ export default function AdminPlansPage() {
   if (loading) return <LoadingBlock />;
   if (error) return <ErrorState>{error}</ErrorState>;
 
-  const numberField = (key: "price" | "duration_days" | "ai_credits" | "social_limit" | "publishing_limit" | "order_position", label: string) => (
+  const numberField = (key: "price" | "yearly_price" | "duration_days" | "ai_credits" | "social_limit" | "publishing_limit" | "order_position", label: string) => (
     <Field label={label}>
       <input className={inputClass} inputMode="decimal" value={edit.draft[key]} onChange={(e) => set(key, e.target.value)} />
     </Field>
@@ -157,6 +160,11 @@ export default function AdminPlansPage() {
                   {fmtAmount(plan.price, plan.currency)}
                   <span className="ml-1 text-sm font-semibold text-foreground/45">/ {plan.duration_days} d</span>
                 </p>
+                {Boolean(plan.yearly_price) && (
+                  <p className="mt-0.5 text-xs text-foreground/45">
+                    {d.yearlyPrice}: {fmtAmount(plan.yearly_price, plan.currency)}
+                  </p>
+                )}
                 {plan.description && <p className="mt-2 text-xs leading-relaxed text-foreground/55">{plan.description}</p>}
                 <ul className="mt-3 space-y-1 text-xs text-foreground/75">
                   {String(plan.features || "")
@@ -205,6 +213,7 @@ export default function AdminPlansPage() {
               <input className={inputClass} value={edit.draft.slug} onChange={(e) => set("slug", e.target.value)} />
             </Field>
             {numberField("price", d.price)}
+            {numberField("yearly_price", d.yearlyPrice)}
             <Field label={d.currency}>
               <select className={inputClass} value={edit.draft.currency} onChange={(e) => set("currency", e.target.value)}>
                 <option value="usd">USD</option>

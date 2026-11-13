@@ -154,6 +154,8 @@ export interface ClickRecord {
   language?: string;
   device?: "mobile" | "tablet" | "desktop";
   country?: string;
+  /** Captured only to detect suspicious click bursts (many clicks from one IP in a short time). */
+  ip_address?: string;
   target_url?: string;
   affiliate_click?: YesNo;
   /** Real commission reported for this click — stays empty until money is reported. */
@@ -397,6 +399,8 @@ export interface PlanRecord {
   name: string;
   slug: string;
   price?: number;
+  /** Optional annual price (same currency as `price`). When set, /pro offers a Month/Year toggle. */
+  yearly_price?: number;
   currency?: Currency;
   duration_days?: number;
   description?: string;
@@ -446,6 +450,8 @@ export interface OrderRecord {
   provider?: string;
   provider_payment_id?: string;
   price_id?: string;
+  /** Billing period for plan orders ("month" | "year"); empty for credit-pack orders. */
+  period?: "month" | "year" | "";
   description?: string;
   paid_at?: string;
   refunded_at?: string;

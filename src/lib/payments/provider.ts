@@ -12,31 +12,29 @@ export interface CheckoutRequest {
   orderId: string;
   userId: string;
   email?: string;
-  priceId: string;
+  amount: number;
+  currency: string;
+  description: string;
   successUrl: string;
+  cancelUrl: string;
 }
 
-/** What the browser needs to open the provider's checkout. Contains no secrets. */
+/** What the browser needs to reach the provider's payment page. Contains no secrets. */
 export interface CheckoutSession {
   provider: string;
   orderId: string;
-  priceId: string;
-  /** Public client-side token (designed by the provider to be exposed). */
-  clientToken: string;
-  environment: "sandbox" | "production";
-  customData: Record<string, string>;
-  email?: string;
-  successUrl: string;
+  /** Hosted payment page — the browser is redirected here. */
+  paymentUrl: string;
 }
 
-/** Normalised view of a provider transaction. */
+/** Normalised view of a provider payment/invoice. */
 export interface ProviderTransaction {
   id: string;
   status: string;
   paid: boolean;
   currency: string;
-  /** Unit prices in minor units, keyed by price id. */
-  items: { priceId: string; unitAmountMinor: number; quantity: number }[];
+  /** Amount in major units (e.g. dollars), matches `order.amount`. */
+  amount: number;
   customData: Record<string, string>;
   subscriptionId: string | null;
   origin: string | null;

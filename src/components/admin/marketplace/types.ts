@@ -72,4 +72,4 @@ export interface MarketData {
 }
 
 export const pct = (value: number | null | undefined) =>
-  value === null || value === undefined ? "N/A" : `${(value * 100).toFixed(2)}%`;
+  value === null || value === undefined ? "—" : `${(value * 100).toFixed(2)}%`;

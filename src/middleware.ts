@@ -88,8 +88,11 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Create response
-  const response = NextResponse.next();
+  // Exposes the current pathname to Server Components (e.g. to skip rendering
+  // admin-managed site tags on /admin/* pages) via headers().
+  const forwardedHeaders = new Headers(request.headers);
+  forwardedHeaders.set("x-pathname", pathname);
+  const response = NextResponse.next({ request: { headers: forwardedHeaders } });
 
   // Add CORS and CSP headers
   addCorsHeaders(response, request);
