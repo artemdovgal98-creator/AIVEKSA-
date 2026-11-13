@@ -14,6 +14,10 @@ export const BRAND_ICONS = {
 
 export type BrandIconKey = keyof typeof BRAND_ICONS;
 
+/** AIVEXA's own brand mark — used as the PWA install icon and manifest icon. */
+export const APP_ICON = "/icons/app-icon.svg";
+
 export const FILES = {
   ...BRAND_ICONS,
+  appIcon: APP_ICON,
 } as const;

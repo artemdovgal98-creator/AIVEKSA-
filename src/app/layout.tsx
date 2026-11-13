@@ -21,6 +21,7 @@ import { parseSiteCode, type ParsedTag } from "@/lib/site-code";
 import { getActiveSiteTags, tagsForRequest } from "@/lib/site-tags";
 import { AdSlot } from "@/components/site/AdSlot";
 import { getAdSlotsConfig } from "@/lib/ad-slots";
+import { PwaServiceWorker } from "@/components/site/PwaServiceWorker";
 
 const unbounded = Unbounded({
   variable: "--font-unbounded",
@@ -115,6 +116,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         <GlobalErrorCatcher />
         <ScriptExecutor />
         <DevToolsHandler />
+        <PwaServiceWorker />
         {/* Boots the Telegram WebApp API when the site is opened as a Mini App. */}
         <TelegramMiniApp />
         {/* Development-preview only banner. Kept outside the page wrapper so it never covers content. */}

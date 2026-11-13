@@ -22,7 +22,6 @@ const ru = {
     radar: "AI Radar",
     articles: "Статьи",
     banners: "Баннеры",
-    ads: "Реклама",
     clicks: "Клики",
   },
   common: {
@@ -419,7 +418,6 @@ const uk: AdminDict = {
     radar: "AI Radar",
     articles: "Статті",
     banners: "Банери",
-    ads: "Реклама",
     clicks: "Кліки",
   },
   common: {
@@ -763,7 +761,6 @@ const en: AdminDict = {
     radar: "AI Radar",
     articles: "Articles",
     banners: "Banners",
-    ads: "Ads",
     clicks: "Clicks",
   },
   common: {

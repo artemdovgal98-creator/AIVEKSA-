@@ -3,14 +3,16 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { useLang } from "@/lib/i18n/context";
 import { useSession, signOut } from "@/lib/auth-client";
 import { api } from "@/lib/api";
+import { usePwaInstall } from "@/lib/use-pwa-install";
 import { LanguageSwitcher } from "./LanguageSwitcher";
 import { TelegramButton } from "./TelegramButton";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Sparkles, LayoutGrid, Wand2, Wrench, Star, BookOpen, Gift, Tags, Radar, User, Shield, LogOut, Crown } from "lucide-react";
+import { Menu, Sparkles, LayoutGrid, Wand2, Wrench, Star, BookOpen, Gift, Tags, Radar, User, Shield, LogOut, Crown, Share2 } from "lucide-react";
 
 export function SiteHeader() {
   const { t } = useLang();
@@ -19,6 +21,7 @@ export function SiteHeader() {
   const [role, setRole] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const { canInstall, installed, promptInstall } = usePwaInstall();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 8);
@@ -62,6 +65,36 @@ export function SiteHeader() {
   ];
 
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+
+  const handleInstall = async () => {
+    if (installed) {
+      toast.info(t.nav.installed);
+      return;
+    }
+    if (!canInstall) {
+      toast.info(t.nav.installManualHint);
+      return;
+    }
+    await promptInstall();
+  };
+
+  const handleShare = async () => {
+    const shareData = { title: "AIVEXA", text: t.nav.shareText, url: window.location.origin };
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share(shareData);
+      } catch (err) {
+        if ((err as Error)?.name !== "AbortError") console.error("[share] navigator.share failed:", err);
+      }
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(shareData.url);
+      toast.success(t.nav.shareCopied);
+    } catch (err) {
+      console.error("[share] clipboard copy failed:", err);
+    }
+  };
 
   return (
     <header
@@ -185,6 +218,29 @@ export function SiteHeader() {
                   <Crown className="h-5 w-5 text-amber-300" />
                   AIVEXA PRO
                 </Link>
+
+                <button
+                  type="button"
+                  onClick={handleInstall}
+                  className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-left text-base font-medium text-foreground/80 transition-colors hover:bg-white/8"
+                >
+                  <span className="logo-mark flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-[#4c6fff] via-[#7c5cff] to-[#22d3ee] shadow-[0_0_16px_-4px_rgba(124,145,255,0.9)]">
+                    <Sparkles className="h-4.5 w-4.5 text-white" strokeWidth={2.4} />
+                  </span>
+                  <span className="flex flex-col">
+                    <span>{t.nav.install}</span>
+                    <span className="text-xs font-normal text-foreground/45">{t.nav.installHint}</span>
+                  </span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleShare}
+                  className="flex items-center gap-3 rounded-xl px-3.5 py-3 text-left text-base font-medium text-foreground/80 transition-colors hover:bg-white/8"
+                >
+                  <Share2 className="h-5 w-5 text-[color:var(--neon-cyan)]" />
+                  {t.nav.share}
+                </button>
 
                 <TelegramButton variant="full" className="mt-2" />
 

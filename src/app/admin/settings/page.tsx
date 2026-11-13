@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useAdminDict } from "@/lib/i18n/admin-dict";
 import { useSystemStatus } from "@/components/admin/useSystemStatus";
 import { PaymentSettingsCard } from "@/components/admin/PaymentSettingsCard";
+import { AdSettingsCard } from "@/components/admin/AdSettingsCard";
 import { SiteTagsCard } from "@/components/admin/SiteTagsCard";
 import { NotConfigured, PageHeader, Pill } from "@/components/admin/kit";
 
@@ -39,6 +40,8 @@ export default function AdminSettingsPage() {
       </section>
 
       <PaymentSettingsCard />
+
+      <AdSettingsCard />
 
       <SiteTagsCard />
     </div>
