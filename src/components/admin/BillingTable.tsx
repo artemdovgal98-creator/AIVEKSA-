@@ -50,7 +50,7 @@ export function BillingTable({ type }: { type: BillingType }) {
     <div>
       <PageHeader
         title={title}
-        actions={type !== "transactions" && !configured ? <NotConfigured label={`Paddle · ${a.common.notConfigured}`} /> : undefined}
+        actions={type !== "transactions" && !configured ? <NotConfigured label={`NOWPayments · ${a.common.notConfigured}`} /> : undefined}
       />
       <div className="mb-4 flex flex-wrap gap-1.5">
         {["", ...statuses].map((value) => (
@@ -120,7 +120,7 @@ export function BillingTable({ type }: { type: BillingType }) {
                       <td className={`px-3 py-3 text-right font-bold ${row.amount > 0 ? "text-emerald-300" : "text-amber-300"}`}>
                         {row.amount > 0 ? `+${row.amount}` : row.amount}
                       </td>
-                      <td className="px-3 py-3 text-right text-white">{row.balance_after ?? "N/A"}</td>
+                      <td className="px-3 py-3 text-right text-white">{row.balance_after ?? "—"}</td>
                       <td className="px-4 py-3 text-xs text-foreground/55">{row.description || "—"}</td>
                     </>
                   ) : type === "subscriptions" ? (

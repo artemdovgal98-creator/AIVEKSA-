@@ -3,7 +3,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { readSettings } from "@/lib/telegram";
 import { isPaymentsConfigured, paymentProvider } from "@/lib/billing";
 import { listWebhookEvents } from "@/lib/webhook-events";
-import { getPaddleConfig } from "@/lib/payments/paddle";
+import { getNowPaymentsConfig } from "@/lib/payments/nowpayments";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +13,7 @@ export async function GET() {
     const admin = await requireAdmin();
     if (!admin) return NextResponse.json({ ok: false, error: "Forbidden" }, { status: 403 });
     const telegram = await readSettings();
-    const paddle = await getPaddleConfig();
+    const nowPayments = await getNowPaymentsConfig();
     const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").replace(/\/$/, "");
     return NextResponse.json({
       ok: true,
@@ -24,19 +24,11 @@ export async function GET() {
           status: await paymentProvider().configStatus(),
           configured: await isPaymentsConfigured(),
           // Only presence flags — values are never returned.
-          clientToken: Boolean(paddle.clientToken),
-          webhookSecret: Boolean(paddle.webhookSecret),
-          apiKey: Boolean(paddle.apiKey),
-          webhookUrl: appUrl ? `${appUrl}/api/paddle/webhook` : null,
-          events: [
-            "transaction.completed",
-            "transaction.paid",
-            "transaction.canceled",
-            "transaction.payment_failed",
-            "subscription.canceled",
-            "adjustment.created",
-            "adjustment.updated",
-          ],
+          apiKeySet: Boolean(nowPayments.apiKey),
+          ipnSecretSet: Boolean(nowPayments.ipnSecret),
+          sandbox: nowPayments.sandbox,
+          ipnUrl: appUrl ? `${appUrl}/api/nowpayments/ipn` : null,
+          events: ["waiting", "confirming", "confirmed", "sending", "partially_paid", "finished", "failed", "refunded", "expired"],
         },
         recentEvents: (await listWebhookEvents(20)).map((event) => ({
           _id: event._id,
@@ -53,7 +45,6 @@ export async function GET() {
           username: telegram.username || null,
           webhookUrl: telegram.webhookUrl || null,
         },
-        zernio: { configured: Boolean((process.env.ZERNIO_API_KEY || "").trim()) },
       },
     });
   } catch (err: any) {

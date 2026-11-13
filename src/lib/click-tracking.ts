@@ -27,6 +27,7 @@ export async function recordClick(data: {
   clickId?: string;
   sessionId?: string;
   origin?: string;
+  ip?: string;
 }) {
   try {
     const headerList = await headers();
@@ -58,6 +59,7 @@ export async function recordClick(data: {
     if (data.offerId) clickData.offer = data.offerId;
     if (country && country !== "XX") clickData.country = country;
     if (sessionUser?.id) clickData.user = sessionUser.id;
+    if (data.ip && data.ip !== "unknown") clickData.ip_address = data.ip;
 
     const created = await totalumSdk.crud.createRecord("clicks", clickData);
     if (created.errors) console.error("[go] click record errors:", created.errors);

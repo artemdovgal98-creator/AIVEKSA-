@@ -2,23 +2,23 @@ import "server-only";
 import { totalumSdk } from "@/lib/totalum";
 import { getActiveSubscription, getPlanBySlug } from "@/lib/access";
 import { applyCreditChange, getBalance } from "@/lib/credits";
-import { getCreditPack, getCreditPackByPriceId } from "@/lib/credit-packs";
-import { getPaddleConfig, paddleApiConfigured, paddleProvider } from "@/lib/payments/paddle";
+import { getCreditPack, getCreditPackById } from "@/lib/credit-packs";
+import { nowPaymentsProvider } from "@/lib/payments/nowpayments";
 import type { CheckoutSession, PaymentProvider, ProviderTransaction } from "@/lib/payments/provider";
 import type { OrderRecord, PlanRecord, SubscriptionRecord } from "@/lib/types";
 
 /**
  * AIVEXA PRO + AI CREDITS billing.
  *
- * Flow: plan / pack → pending order → provider checkout → signed webhook →
- * verify (order, user, price id, amount, currency, status) → order PAID →
+ * Flow: plan / pack → pending order → provider checkout → signed IPN →
+ * verify (order, user, amount, currency, status) → order PAID →
  * subscription ACTIVE or credits granted. The browser's return URL never
  * activates anything.
  */
 
 /** The active card provider. Providers are adapters behind `PaymentProvider`. */
 export function paymentProvider(): PaymentProvider {
-  return paddleProvider;
+  return nowPaymentsProvider;
 }
 
 export async function isPaymentsConfigured(): Promise<boolean> {
@@ -52,34 +52,43 @@ async function createPendingOrder(fields: Record<string, unknown>): Promise<stri
   return String((created.data as any)?.insertedId || "");
 }
 
+export type BillingPeriod = "month" | "year";
+
 export async function createPlanCheckout(
   user: { _id: string; email?: string },
   planSlug: string,
+  period: BillingPeriod,
   origin: string
 ): Promise<CheckoutSession> {
   if (!(await isPaymentsConfigured())) throw new Error("PAYMENTS_NOT_CONFIGURED");
   const plan = await getPlanBySlug(planSlug);
   if (!plan || plan.active !== "yes") throw new Error("PLAN_NOT_AVAILABLE");
-  const price = Number(plan.price);
-  if (!Number.isFinite(price) || price <= 0) throw new Error("PLAN_PRICE_INVALID");
-  const priceId = (await getPaddleConfig()).planPrices[plan.slug];
-  if (!priceId) throw new Error("PRICE_NOT_CONFIGURED");
+  const monthlyPrice = Number(plan.price);
+  if (!Number.isFinite(monthlyPrice) || monthlyPrice <= 0) throw new Error("PLAN_PRICE_INVALID");
+  const yearlyPrice = Number(plan.yearly_price);
+  const isYear = period === "year" && Number.isFinite(yearlyPrice) && yearlyPrice > 0;
+  const price = isYear ? yearlyPrice : monthlyPrice;
+  const days = isYear ? 365 : Math.max(Number(plan.duration_days) || 30, 1);
+  const currency = plan.currency || "usd";
 
   const orderId = await createPendingOrder({
     user: user._id,
     plan: plan._id,
     amount: price,
-    currency: plan.currency || "usd",
-    price_id: priceId,
-    description: `${plan.name} — ${plan.duration_days || 30} days`,
+    currency,
+    period: isYear ? "year" : "month",
+    description: `${plan.name} — ${isYear ? "12 months" : `${days} days`}`,
   });
-  console.log(`[billing] plan checkout: order ${orderId}, plan ${plan.slug}, user ${user._id}`);
+  console.log(`[billing] plan checkout: order ${orderId}, plan ${plan.slug}, period ${isYear ? "year" : "month"}, user ${user._id}`);
   return paymentProvider().createCheckout({
     orderId,
     userId: user._id,
     email: user.email,
-    priceId,
+    amount: price,
+    currency,
+    description: `${plan.name} — AIVEXA PRO`,
     successUrl: `${origin}/pro/success?order=${orderId}`,
+    cancelUrl: `${origin}/pro?cancelled=1`,
   });
 }
 
@@ -92,13 +101,12 @@ export async function createCreditsCheckout(
   if (!(await isPaymentsConfigured())) throw new Error("PAYMENTS_NOT_CONFIGURED");
   const pack = await getCreditPack(packId);
   if (!pack) throw new Error("PACK_NOT_AVAILABLE");
-  if (!pack.paddle_price_id) throw new Error("PRICE_NOT_CONFIGURED");
 
   const orderId = await createPendingOrder({
     user: user._id,
     amount: pack.price,
     currency: pack.currency,
-    price_id: pack.paddle_price_id,
+    price_id: pack.id,
     description: `AIVEXA CREDITS — ${pack.credits}`,
   });
   console.log(`[billing] credits checkout: order ${orderId}, pack ${pack.id}, user ${user._id}`);
@@ -106,8 +114,11 @@ export async function createCreditsCheckout(
     orderId,
     userId: user._id,
     email: user.email,
-    priceId: pack.paddle_price_id,
+    amount: pack.price,
+    currency: pack.currency,
+    description: `AIVEXA CREDITS — ${pack.credits}`,
     successUrl: `${origin}/pro/success?order=${orderId}&kind=credits`,
+    cancelUrl: `${origin}/pro?cancelled=1#credits`,
   });
 }
 
@@ -130,7 +141,7 @@ async function findOrderByPayment(providerPaymentId: string): Promise<OrderRecor
   return ((result.data || []) as unknown as OrderRecord[])[0] || null;
 }
 
-// Webhook retries and the success-page confirm can race — fulfil one order at a time per process.
+// IPN retries and the success-page confirm can race — fulfil one order at a time per process.
 const inFlight = new Map<string, Promise<FulfilOutcome>>();
 
 export interface FulfilOutcome {
@@ -140,7 +151,7 @@ export interface FulfilOutcome {
   detail?: string;
 }
 
-/** Idempotent fulfilment of a provider transaction (webhook or API re-read). */
+/** Idempotent fulfilment of a provider transaction (IPN callback or API re-read). */
 export async function fulfilTransaction(tx: ProviderTransaction): Promise<FulfilOutcome> {
   const key = tx.customData.order_id || tx.id;
   const running = inFlight.get(key);
@@ -152,11 +163,7 @@ export async function fulfilTransaction(tx: ProviderTransaction): Promise<Fulfil
 
 async function fulfilTransactionInner(tx: ProviderTransaction): Promise<FulfilOutcome> {
   const orderId = tx.customData.order_id || "";
-  // Subscription renewals are created by the provider, not by our checkout.
-  if (!orderId) {
-    if (tx.subscriptionId && tx.paid) return fulfilRenewal(tx);
-    return { status: "unknown_order", detail: "no order_id in custom_data" };
-  }
+  if (!orderId) return { status: "unknown_order", detail: "no order_id in payload" };
 
   const order = await loadOrder(orderId);
   if (!order) return { status: "unknown_order", orderId };
@@ -166,26 +173,25 @@ async function fulfilTransactionInner(tx: ProviderTransaction): Promise<FulfilOu
     return { status: "mismatch", orderId, detail: "order already linked to another transaction" };
   }
 
-  // Ownership: the order must belong to the user written in custom data.
-  if (userIdOfOrder(order) !== tx.customData.user_id) {
-    console.error("[billing] user mismatch for order", orderId);
-    return { status: "mismatch", orderId, detail: "user mismatch" };
+  // The payment id is recorded on first sight so later (non-final) IPNs can still be matched.
+  if (!order.provider_payment_id && tx.id) {
+    await totalumSdk.crud.editRecordById("orders", orderId, { provider_payment_id: tx.id });
   }
 
   if (!tx.paid) {
-    if (tx.status === "canceled") {
-      await totalumSdk.crud.editRecordById("orders", orderId, { status: "failed" });
+    if (tx.status === "failed" || tx.status === "expired") {
+      await totalumSdk.crud.editRecordById("orders", orderId, { status: "failed", provider_payment_id: tx.id });
       return { status: "failed", orderId, kind };
     }
+    // waiting / confirming / confirmed / sending / partially_paid — logged only, order stays pending.
     return { status: "pending", orderId, kind };
   }
 
-  // Price id, amount and currency must match what the server put on the order.
-  const item = tx.items.find((entry) => entry.priceId === order.price_id);
+  // Amount and currency must match what the server put on the order (crypto-rate rounding tolerance: 1 cent).
   const expectedCents = toCents(Number(order.amount) || 0);
+  const actualCents = toCents(Number(tx.amount) || 0);
   const problems: string[] = [];
-  if (!item) problems.push(`price ${tx.items.map((i) => i.priceId).join(",")} ≠ ${order.price_id}`);
-  else if (item.unitAmountMinor !== expectedCents) problems.push(`amount ${item.unitAmountMinor} ≠ ${expectedCents}`);
+  if (Math.abs(actualCents - expectedCents) > 1) problems.push(`amount ${actualCents} ≠ ${expectedCents}`);
   if (tx.currency !== (order.currency || "usd")) problems.push(`currency ${tx.currency} ≠ ${order.currency}`);
   if (problems.length > 0) {
     console.error("[billing] verification failed for order", orderId, problems.join("; "));
@@ -209,57 +215,18 @@ async function fulfilTransactionInner(tx: ProviderTransaction): Promise<FulfilOu
 
   const userId = userIdOfOrder(order);
   if (kind === "credits") {
-    const pack = await getCreditPackByPriceId(order.price_id || "");
-    if (!pack) throw new Error(`No credit pack for price ${order.price_id}`);
+    const pack = await getCreditPackById(order.price_id || "");
+    if (!pack) throw new Error(`No credit pack for id ${order.price_id}`);
     await applyCreditChange({ userId, amount: pack.credits, type: "purchase", referenceId: orderId, description: `Credit pack: ${pack.credits}` });
   } else {
-    await activatePlan(userId, order.plan as PlanRecord, paymentProvider().name, tx.subscriptionId || tx.id, orderId, tx.billingPeriodEndsAt);
+    const days = order.period === "year" ? 365 : undefined;
+    await activatePlan(userId, order.plan as PlanRecord, paymentProvider().name, tx.id, orderId, days);
   }
   console.log(`[billing] order fulfilled: ${orderId} (${kind}) via ${tx.id}`);
   return { status: "paid", orderId, kind };
 }
 
-/** Recurring PRO payment: extend the subscription that owns this provider subscription id. */
-async function fulfilRenewal(tx: ProviderTransaction): Promise<FulfilOutcome> {
-  const existing = await findOrderByPayment(tx.id);
-  if (existing) return { status: "paid", orderId: existing._id, kind: "plan" };
-
-  const subs = await totalumSdk.crud.query("subscriptions", {
-    _filter: { provider_subscription_id: tx.subscriptionId },
-    _sort: { end_date: "desc" },
-    _limit: 1,
-    plan: true,
-  });
-  if (subs.errors) throw new Error("Subscription lookup failed");
-  const sub = ((subs.data || []) as unknown as SubscriptionRecord[])[0];
-  const plan = sub?.plan && typeof sub.plan === "object" ? (sub.plan as PlanRecord) : null;
-  const userId = sub ? (typeof sub.user === "object" ? sub.user?._id : (sub.user as string)) || "" : "";
-  if (!sub || !plan || !userId) return { status: "unknown_order", detail: `no local subscription ${tx.subscriptionId}` };
-
-  const priceId = (await getPaddleConfig()).planPrices[plan.slug];
-  const item = tx.items.find((entry) => entry.priceId === priceId);
-  if (!item) return { status: "mismatch", detail: "renewal price does not match plan" };
-
-  const orderId = await createPendingOrder({
-    user: userId,
-    plan: plan._id,
-    amount: item.unitAmountMinor / 100,
-    currency: tx.currency === "eur" ? "eur" : "usd",
-    price_id: priceId,
-    description: `${plan.name} — renewal`,
-  });
-  const paid = await totalumSdk.crud.editRecordById("orders", orderId, {
-    status: "paid",
-    paid_at: new Date().toISOString(),
-    provider_payment_id: tx.id,
-  });
-  if (paid.errors) throw new Error("Renewal order update failed");
-  await activatePlan(userId, plan, paymentProvider().name, tx.subscriptionId || tx.id, orderId, tx.billingPeriodEndsAt);
-  console.log(`[billing] renewal fulfilled: ${orderId} for ${userId} (${tx.subscriptionId})`);
-  return { status: "paid", orderId, kind: "plan" };
-}
-
-/** Approved refund (provider adjustment) → order REFUNDED, access recalculated, ledger entry. */
+/** Provider says a previously paid order was refunded → order REFUNDED, access recalculated, ledger entry. */
 export async function applyRefund(transactionId: string): Promise<FulfilOutcome> {
   const order = await findOrderByPayment(transactionId);
   if (!order) return { status: "unknown_order", detail: `no order for ${transactionId}` };
@@ -272,7 +239,7 @@ export async function applyRefund(transactionId: string): Promise<FulfilOutcome>
   const userId = userIdOfOrder(order);
   if (!order.plan) {
     // Remove the purchased credits that are still unspent — the balance never goes negative.
-    const pack = await getCreditPackByPriceId(order.price_id || "");
+    const pack = await getCreditPackById(order.price_id || "");
     const remove = Math.min(pack?.credits || 0, await getBalance(userId));
     if (remove > 0) {
       await applyCreditChange({ userId, amount: -remove, type: "refund", referenceId: order._id, description: `Refund of credit pack (${order.order_number || order._id})` });
@@ -288,43 +255,16 @@ export async function applyRefund(transactionId: string): Promise<FulfilOutcome>
   return { status: "paid", orderId: order._id, kind: order.plan ? "plan" : "credits", detail: "refunded" };
 }
 
-/** Provider says the recurring subscription ended → no auto-renew; access ends at the paid period. */
-export async function applyProviderCancellation(subscriptionId: string, effectiveAt: string | null): Promise<FulfilOutcome> {
-  const subs = await totalumSdk.crud.query("subscriptions", { _filter: { provider_subscription_id: subscriptionId }, _limit: 10 });
-  if (subs.errors) throw new Error("Subscription lookup failed");
-  const rows = (subs.data || []) as unknown as SubscriptionRecord[];
-  if (rows.length === 0) return { status: "unknown_order", detail: `no local subscription ${subscriptionId}` };
-  const now = new Date().toISOString();
-  const endsAt = effectiveAt && effectiveAt < now ? effectiveAt : now;
-  for (const sub of rows) {
-    if (sub.status !== "active" && sub.status !== "paid") continue;
-    const end = sub.end_date && sub.end_date < endsAt ? sub.end_date : endsAt;
-    const changed = await totalumSdk.crud.editRecordById("subscriptions", sub._id, {
-      status: "cancelled",
-      auto_renew: "no",
-      cancelled_at: (sub as any).cancelled_at || now,
-      end_date: end,
-    });
-    if (changed.errors) console.error("[billing] failed to cancel subscription:", changed.errors);
-  }
-  return { status: "paid", detail: "cancelled" };
-}
-
 /**
- * Self-service cancel: auto-renew OFF at the provider, access kept until
- * end_date, no automatic refund. The local status stays active until the
- * period ends, then the provider's `subscription.canceled` closes it.
+ * Self-service cancel: access kept until end_date, no automatic refund. AIVEXA
+ * PRO never auto-renews on this provider (crypto payments are one-time), so
+ * this only needs to update the local record.
  */
 export async function cancelOwnSubscription(userId: string): Promise<{ endDate: string | null }> {
   const current = await getActiveSubscription(userId);
   if (!current) throw new Error("NO_ACTIVE_SUBSCRIPTION");
   if ((current as any).auto_renew === "no") return { endDate: current.end_date || null };
 
-  const providerSubId = current.provider_subscription_id || "";
-  if (current.provider === "paddle" && providerSubId.startsWith("sub_")) {
-    if (!(await paddleApiConfigured())) throw new Error("CANCEL_NOT_CONFIGURED");
-    await paymentProvider().cancelSubscription(providerSubId);
-  }
   const changed = await totalumSdk.crud.editRecordById("subscriptions", current._id, {
     auto_renew: "no",
     cancelled_at: new Date().toISOString(),
@@ -339,8 +279,8 @@ export async function cancelOwnSubscription(userId: string): Promise<{ endDate: 
 
 /**
  * Starts (or extends) a subscription. An active subscription is extended from
- * its current end date so paying early never loses days. `periodEndsAt` (the
- * provider's billing period end) wins when it is later.
+ * its current end date so paying early never loses days. `overrideDays` wins
+ * over the plan's own `duration_days` (used for yearly purchases).
  */
 export async function activatePlan(
   userId: string,
@@ -348,13 +288,12 @@ export async function activatePlan(
   provider: string,
   providerId: string,
   orderId?: string,
-  periodEndsAt?: string | null
+  overrideDays?: number
 ) {
-  const days = Math.max(Number(plan.duration_days) || 30, 1);
+  const days = Math.max(overrideDays || Number(plan.duration_days) || 30, 1);
   const current = await getActiveSubscription(userId);
   const start = current?.end_date && current.end_date > new Date().toISOString() ? new Date(current.end_date) : new Date();
-  let end = new Date(start.getTime() + days * 86_400_000);
-  if (periodEndsAt && !Number.isNaN(Date.parse(periodEndsAt)) && new Date(periodEndsAt) > end) end = new Date(periodEndsAt);
+  const end = new Date(start.getTime() + days * 86_400_000);
 
   const created = await totalumSdk.crud.createRecord("subscriptions", {
     user: userId,
@@ -365,7 +304,7 @@ export async function activatePlan(
     end_date: end.toISOString(),
     provider,
     provider_subscription_id: providerId,
-    auto_renew: providerId.startsWith("sub_") ? "yes" : "no",
+    auto_renew: "no",
   });
   if (created.errors) {
     console.error("[billing] subscription create failed:", created.errors);
@@ -393,17 +332,31 @@ export async function activatePlan(
 }
 
 /** Status of one of the user's own orders (the success page polls this; it never activates anything). */
-export async function getOwnOrderStatus(userId: string, orderId: string, transactionId?: string): Promise<FulfilOutcome> {
+export async function getOwnOrderStatus(userId: string, orderId: string): Promise<FulfilOutcome> {
   const order = await loadOrder(orderId);
   if (!order || userIdOfOrder(order) !== userId) return { status: "unknown_order" };
   const kind: "plan" | "credits" = order.plan ? "plan" : "credits";
   if (order.status === "paid") return { status: "paid", orderId, kind };
   if (order.status === "failed" || order.status === "cancelled") return { status: "failed", orderId, kind };
 
-  // Webhook not here yet: re-read the transaction from the provider API (server-side verification).
-  if (transactionId && (await paddleApiConfigured())) {
-    const tx = await paymentProvider().getTransaction(transactionId);
-    if (tx.customData.order_id === orderId) return fulfilTransaction(tx);
+  // IPN not received yet: re-read the payment from the provider API once we have seen one.
+  if (order.provider_payment_id && (await isPaymentsConfigured())) {
+    try {
+      const tx = await paymentProvider().getTransaction(order.provider_payment_id);
+      return fulfilTransaction(tx);
+    } catch (err) {
+      console.error("[billing] transaction re-read failed:", err);
+    }
   }
   return { status: "pending", orderId, kind };
+}
+
+/** Active subscriptions ending within `days` with no renewal scheduled — used for the in-app renewal reminder. */
+export async function getExpiringSoon(userId: string, days = 3): Promise<{ planName: string; endDate: string } | null> {
+  const sub = await getActiveSubscription(userId);
+  if (!sub || !sub.end_date) return null;
+  const msLeft = new Date(sub.end_date).getTime() - Date.now();
+  if (msLeft <= 0 || msLeft > days * 86_400_000) return null;
+  const plan = sub.plan && typeof sub.plan === "object" ? (sub.plan as PlanRecord) : null;
+  return { planName: plan?.name || "AIVEXA PRO", endDate: sub.end_date };
 }

@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Check, Crown, Sparkles } from "lucide-react";
+import { Check, Clock, Crown, Sparkles } from "lucide-react";
 import { getServerDict } from "@/lib/i18n/server";
 import { publicDict } from "@/lib/i18n/public-dict";
 import { getActivePlans, getActiveSubscription, planOf } from "@/lib/access";
 import { getSessionUser } from "@/lib/admin-auth";
-import { isPaymentsConfigured } from "@/lib/billing";
-import { ProCheckoutButton } from "@/components/site/ProCheckoutButton";
+import { getExpiringSoon, isPaymentsConfigured } from "@/lib/billing";
+import { ProPlanCard } from "@/components/site/ProPlanCard";
 import { CURRENCY_SYMBOLS } from "@/lib/money";
 import { getCreditPacks } from "@/lib/credit-packs";
 import { CreditPacks } from "@/components/site/CreditPacks";
@@ -39,6 +39,7 @@ export default async function ProPage({ searchParams }: { searchParams: Promise<
   const subscription = sessionUser?.id ? await getActiveSubscription(sessionUser.id).catch(() => null) : null;
   const activePlan = planOf(subscription);
   const activeUntil = subscription && activePlan && activePlan._id === plan?._id ? subscription.end_date || null : null;
+  const expiringSoon = sessionUser?.id ? await getExpiringSoon(sessionUser.id).catch(() => null) : null;
   const features = String(plan?.features || "").split("\n").map((line) => line.trim()).filter(Boolean);
   const symbol = CURRENCY_SYMBOLS[(plan?.currency || "usd") as keyof typeof CURRENCY_SYMBOLS] || "$";
 
@@ -58,6 +59,15 @@ export default async function ProPage({ searchParams }: { searchParams: Promise<
         {params.cancelled && <p className="mt-4 text-sm text-amber-300">{p.cancelled}</p>}
       </header>
 
+      {expiringSoon && (
+        <div className="glass-strong neon-border relative mx-auto mt-8 flex max-w-xl items-center gap-3 rounded-2xl p-4 text-left">
+          <Clock className="h-5 w-5 shrink-0 text-amber-300" />
+          <p className="text-sm text-foreground/80">
+            {p.renewalReminder} <strong className="text-white">{new Date(expiringSoon.endDate).toLocaleDateString()}</strong>. {p.renewalReminderSub}
+          </p>
+        </div>
+      )}
+
       <div className="relative mt-10 grid gap-5 md:grid-cols-2">
         <section className="glass rounded-3xl p-6 sm:p-8">
           <p className="font-display text-lg font-bold text-white">{p.freeTitle}</p>
@@ -76,40 +86,19 @@ export default async function ProPage({ searchParams }: { searchParams: Promise<
           <div className="pointer-events-none absolute -right-14 -top-14 h-48 w-48 rounded-full bg-[color:var(--neon-violet)]/25 blur-3xl" aria-hidden />
           {plan ? (
             <div className="relative">
-              <p className="flex items-center gap-2 font-display text-lg font-bold text-white">
-                <Sparkles className="h-4.5 w-4.5 text-[color:var(--neon-cyan)]" />
-                {plan.name}
-              </p>
-              <p className="font-display mt-3 text-4xl font-extrabold text-white">
-                {symbol}
-                {Number(plan.price || 0).toFixed(2)}
-                <span className="ml-1.5 text-base font-semibold text-foreground/50">
-                  / {plan.duration_days || 30} {p.per}
-                </span>
-              </p>
-              {plan.description && <p className="mt-2 text-sm text-foreground/60">{plan.description}</p>}
-              <ul className="mt-6 space-y-3 text-sm text-foreground/85">
-                {features.map((line) => (
-                  <li key={line} className="flex items-start gap-2.5">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--neon-cyan)]" />
-                    {line}
-                  </li>
-                ))}
-                {Number(plan.ai_credits) > 0 && (
-                  <li className="flex items-start gap-2.5">
-                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[color:var(--neon-cyan)]" />
-                    {plan.ai_credits} {p.credits}
-                  </li>
-                )}
-              </ul>
-              <div className="mt-8">
-                <ProCheckoutButton
-                  planSlug={plan.slug}
-                  signedIn={Boolean(sessionUser?.id)}
-                  paymentsConfigured={paymentsConfigured}
-                  activeUntil={activeUntil}
-                />
-              </div>
+              <ProPlanCard
+                planSlug={plan.slug}
+                name={plan.name}
+                description={plan.description || ""}
+                monthlyPrice={Number(plan.price || 0)}
+                yearlyPrice={Number(plan.yearly_price) > 0 ? Number(plan.yearly_price) : null}
+                symbol={symbol}
+                features={features}
+                aiCredits={Number(plan.ai_credits) || 0}
+                signedIn={Boolean(sessionUser?.id)}
+                paymentsConfigured={paymentsConfigured}
+                activeUntil={activeUntil}
+              />
             </div>
           ) : (
             <p className="relative py-10 text-center text-sm text-foreground/50">{p.noPlan}</p>

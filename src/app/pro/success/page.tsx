@@ -5,7 +5,6 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Clock, Loader2, XCircle } from "lucide-react";
 import { api } from "@/lib/api";
-import { paddleTxnKey } from "@/lib/paddle-client";
 import { useLang } from "@/lib/i18n/context";
 import { publicDict } from "@/lib/i18n/public-dict";
 
@@ -25,14 +24,8 @@ function SuccessInner() {
     let attempts = 0;
     let timer: ReturnType<typeof setTimeout>;
     const poll = async () => {
-      // Only the server decides: it waits for the signed Paddle webhook (or re-reads the transaction via the API).
-      let transactionId = "";
-      try {
-        transactionId = sessionStorage.getItem(paddleTxnKey(orderId)) || "";
-      } catch {
-        /* storage unavailable */
-      }
-      const response = await api.post<{ status: string; kind?: string }>("/api/billing/confirm", { order_id: orderId, transaction_id: transactionId });
+      // Only the server decides: it waits for the signed NOWPayments IPN (or re-reads the payment via the API).
+      const response = await api.post<{ status: string; kind?: string }>("/api/billing/confirm", { order_id: orderId });
       if (response.ok && response.data?.kind) setKind(response.data.kind);
       const next = response.ok ? response.data?.status || "pending" : "failed";
       console.log("[pro/success] payment status:", next);

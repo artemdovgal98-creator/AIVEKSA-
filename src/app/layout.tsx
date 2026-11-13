@@ -1,6 +1,7 @@
 // src/app/layout.tsx
 import React from "react";
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { Unbounded, Manrope } from "next/font/google";
 import "./globals.css";
 import { ScriptExecutor } from "@/components/ScriptExecutor";
@@ -16,7 +17,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { FavoritesProvider } from "@/components/site/FavoritesProvider";
 import { TelegramMiniApp } from "@/components/site/TelegramMiniApp";
 import { SiteCodeTags } from "@/components/site/SiteCodeTags";
-import { getSiteCode, getSiteCodeByScope, parseSiteCode } from "@/lib/site-code";
+import { parseSiteCode, type ParsedTag } from "@/lib/site-code";
+import { getActiveSiteTags, tagsForRequest } from "@/lib/site-tags";
 
 const unbounded = Unbounded({
   variable: "--font-unbounded",
@@ -79,16 +81,26 @@ export const revalidate = 0;
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const { lang } = await getServerDict();
-  // Admin-managed verification tags / widget scripts (Admin → System Settings → Site code).
-  const siteCode = await getSiteCode().catch((err) => {
-    console.error("[layout] site code unavailable:", err);
-    return {} as Record<string, string>;
-  });
+  const pathname = (await headers()).get("x-pathname") || "";
+  const isAdminPage = pathname.startsWith("/admin");
+
+  // Admin-managed verification tags / widget scripts (Admin → System Settings → Integrations).
+  // Never loaded on /admin/* pages.
+  let headTags: ParsedTag[] = [];
+  let bodyTags: ParsedTag[] = [];
+  if (!isAdminPage) {
+    const activeTags = await getActiveSiteTags().catch((err) => {
+      console.error("[layout] site tags unavailable:", err);
+      return [];
+    });
+    headTags = tagsForRequest(activeTags, "head", pathname).flatMap((tag) => parseSiteCode(tag.code));
+    bodyTags = tagsForRequest(activeTags, "body", pathname).flatMap((tag) => parseSiteCode(tag.code));
+  }
 
   return (
     <html lang={lang} className="dark">
       <head>
-        <SiteCodeTags tags={parseSiteCode(getSiteCodeByScope(siteCode, "head"))} scope="head" />
+        <SiteCodeTags tags={headTags} scope="head" />
       </head>
       <body className={`${unbounded.variable} ${manrope.variable} antialiased`}>
         <GlobalErrorCatcher />
@@ -109,7 +121,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <Toaster position="top-center" richColors />
           </FavoritesProvider>
         </LanguageProvider>
-        <SiteCodeTags tags={parseSiteCode(getSiteCodeByScope(siteCode, "body"))} scope="body" />
+        <SiteCodeTags tags={bodyTags} scope="body" />
       </body>
     </html>
   );

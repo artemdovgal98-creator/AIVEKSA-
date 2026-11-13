@@ -16,6 +16,8 @@ export function buildPlanPayload(body: any): { payload: Record<string, any>; err
   if (!/^[a-z0-9-]{1,40}$/.test(slug)) return { payload: {}, error: "Slug must be latin letters, digits and dashes" };
   const price = Math.round(Number(body?.price) * 100) / 100;
   if (!Number.isFinite(price) || price < 0 || price > 10_000) return { payload: {}, error: "Invalid price" };
+  const yearlyRaw = Number(body?.yearly_price);
+  const yearlyPrice = Number.isFinite(yearlyRaw) && yearlyRaw > 0 ? Math.min(Math.round(yearlyRaw * 100) / 100, 100_000) : 0;
   const currency = body?.currency === "eur" ? "eur" : "usd";
   const rules = (Array.isArray(body?.access_rules) ? body.access_rules : []).filter((rule: unknown) =>
     (PLAN_ACCESS_RULES as readonly string[]).includes(String(rule))
@@ -25,6 +27,7 @@ export function buildPlanPayload(body: any): { payload: Record<string, any>; err
       name,
       slug,
       price,
+      yearly_price: yearlyPrice,
       currency,
       duration_days: int(body?.duration_days, 30, 1, 3650),
       description: str(body?.description, 2000),

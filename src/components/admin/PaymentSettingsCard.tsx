@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { CreditCard, Loader2 } from "lucide-react";
+import { CreditCard, ExternalLink, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAdminDict } from "@/lib/i18n/admin-dict";
 import { NotConfigured, Pill } from "@/components/admin/kit";
@@ -11,36 +11,35 @@ interface PaymentSettings {
   provider: string;
   status: string;
   enabled: boolean;
-  environment: "sandbox" | "production";
-  clientTokenSet: boolean;
-  webhookSecretSet: boolean;
+  sandbox: boolean;
   apiKeySet: boolean;
-  proPriceId: string;
-  packPrices: { id: string; credits: number; price: number; currency: string; priceId: string }[];
-  webhookUrl: string | null;
+  ipnSecretSet: boolean;
+  packPrices: { id: string; credits: number; price: number; currency: string }[];
+  ipnUrl: string | null;
+  recentEvents: { _id: string; event_type?: string; status?: string; result?: string; error?: string; occurred_at?: string; createdAt?: string }[];
 }
 
-type SecretKey = "clientToken" | "webhookSecret" | "apiKey";
+type SecretKey = "apiKey" | "ipnSecret";
 
 const field =
   "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 font-mono text-xs text-white outline-none placeholder:text-foreground/30 focus:border-[color:var(--neon-cyan)]/60";
 
-/** Admin → System Settings → Payments. Secrets are write-only — the API only says whether they are set. */
+/** Admin → System Settings → Payments (NOWPayments). Secrets are write-only — the API only says whether they are set. */
 export function PaymentSettingsCard() {
   const a = useAdminDict();
   const d = a.paymentsCfg;
   const [data, setData] = useState<PaymentSettings | null>(null);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [enabled, setEnabled] = useState(true);
-  const [environment, setEnvironment] = useState("");
-  const [proPriceId, setProPriceId] = useState("");
-  const [secrets, setSecrets] = useState<Record<SecretKey, string>>({ clientToken: "", webhookSecret: "", apiKey: "" });
+  const [sandbox, setSandbox] = useState(true);
+  const [secrets, setSecrets] = useState<Record<SecretKey, string>>({ apiKey: "", ipnSecret: "" });
 
   const apply = (next: PaymentSettings) => {
     setData(next);
     setEnabled(next.enabled);
-    setProPriceId(next.proPriceId);
-    setSecrets({ clientToken: "", webhookSecret: "", apiKey: "" });
+    setSandbox(next.sandbox);
+    setSecrets({ apiKey: "", ipnSecret: "" });
   };
 
   useEffect(() => {
@@ -55,13 +54,7 @@ export function PaymentSettingsCard() {
 
   const save = async (clear: SecretKey[] = []) => {
     setSaving(true);
-    const response = await api.put<PaymentSettings>("/api/admin/payments", {
-      enabled,
-      environment,
-      proPriceId,
-      ...secrets,
-      clear,
-    });
+    const response = await api.put<PaymentSettings>("/api/admin/payments", { enabled, sandbox, ...secrets, clear });
     setSaving(false);
     if (!response.ok || !response.data) {
       console.error("[admin/payments] save failed:", response.error);
@@ -70,6 +63,18 @@ export function PaymentSettingsCard() {
     }
     apply(response.data);
     toast.success(a.common.saved);
+  };
+
+  const testPayment = async () => {
+    setTesting(true);
+    const response = await api.post<{ paymentUrl: string }>("/api/admin/payments", { action: "test" });
+    setTesting(false);
+    if (!response.ok || !response.data?.paymentUrl) {
+      console.error("[admin/payments] test payment failed:", response.error);
+      toast.error(String(response.error || a.common.error));
+      return;
+    }
+    window.open(response.data.paymentUrl, "_blank", "noopener,noreferrer");
   };
 
   if (!data) {
@@ -115,21 +120,12 @@ export function PaymentSettingsCard() {
           <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
           {d.enabled}
         </label>
-        <label className="flex items-center gap-2 text-xs text-foreground/60">
-          {d.environment}
-          <select className={`${field} w-auto`} value={environment} onChange={(e) => setEnvironment(e.target.value)}>
-            <option value="">{d.auto} ({data.environment})</option>
-            <option value="production">production</option>
-            <option value="sandbox">sandbox</option>
-          </select>
+        <label className="flex items-center gap-2 text-sm text-foreground/75">
+          <input type="checkbox" checked={sandbox} onChange={(e) => setSandbox(e.target.checked)} />
+          {d.sandboxToggle}
         </label>
-        {secretRow("clientToken", d.clientToken, data.clientTokenSet)}
-        {secretRow("webhookSecret", d.webhookSecret, data.webhookSecretSet)}
-        {secretRow("apiKey", d.apiKey, data.apiKeySet)}
-        <label className="block space-y-1">
-          <span className="text-[11px] text-foreground/55">{d.proPrice}</span>
-          <input className={field} value={proPriceId} onChange={(e) => setProPriceId(e.target.value.trim())} placeholder="pri_…" />
-        </label>
+        {secretRow("apiKey", d.apiKeyLabel, data.apiKeySet)}
+        {secretRow("ipnSecret", d.ipnSecret, data.ipnSecretSet)}
       </div>
 
       <div className="mt-4 space-y-1.5 text-xs">
@@ -141,24 +137,55 @@ export function PaymentSettingsCard() {
               <span className="text-foreground/50">
                 {pack.price.toFixed(2)} {pack.currency.toUpperCase()}
               </span>
-              <code className="ml-auto break-all text-foreground/60">{pack.priceId || "N/A"}</code>
             </li>
           ))}
         </ul>
         <p className="pt-2 text-foreground/45">
-          {d.webhookUrl}: <code className="break-all text-foreground/75">{data.webhookUrl || "N/A"}</code>
+          {d.ipnUrl}: <code className="break-all text-foreground/75">{data.ipnUrl || "—"}</code>
         </p>
       </div>
 
-      <button
-        type="button"
-        disabled={saving}
-        onClick={() => save()}
-        className="mt-4 inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#4c6fff] to-[#a855f7] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
-      >
-        {saving && <Loader2 className="h-4 w-4 animate-spin" />}
-        {d.save}
-      </button>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={saving}
+          onClick={() => save()}
+          className="inline-flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#4c6fff] to-[#a855f7] px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+        >
+          {saving && <Loader2 className="h-4 w-4 animate-spin" />}
+          {d.save}
+        </button>
+        <button
+          type="button"
+          disabled={testing || !data.apiKeySet}
+          onClick={testPayment}
+          title={!data.apiKeySet ? d.empty : undefined}
+          className="glass glass-hover inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-foreground/80 disabled:opacity-40"
+        >
+          {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ExternalLink className="h-4 w-4" />}
+          {d.testPayment}
+        </button>
+      </div>
+
+      <div className="mt-5">
+        <p className="mb-2 text-xs font-semibold text-foreground/55">{d.recentEvents}</p>
+        {data.recentEvents.length === 0 ? (
+          <p className="rounded-xl bg-white/4 px-3 py-4 text-center text-xs text-foreground/40">{d.noEvents}</p>
+        ) : (
+          <ul className="space-y-1.5">
+            {data.recentEvents.map((event) => (
+              <li key={event._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl bg-white/4 px-3 py-2 text-xs">
+                <span className="text-foreground/40">{new Date(event.occurred_at || event.createdAt || "").toLocaleString()}</span>
+                <code className="text-[color:var(--neon-cyan)]">{event.event_type || "—"}</code>
+                <Pill tone={event.status === "processed" ? "green" : event.status === "failed" || event.status === "invalid_signature" ? "red" : "gray"}>
+                  {(event.status || "—").toUpperCase()}
+                </Pill>
+                <span className="min-w-0 flex-1 truncate text-foreground/55">{event.error || ""}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
     </section>
   );
 }

@@ -9,15 +9,14 @@ export interface SystemStatus {
     provider: string;
     status: "ENABLED" | "DISABLED" | "NOT CONFIGURED" | "INVALID CONFIGURATION";
     configured: boolean;
-    clientToken: boolean;
-    webhookSecret: boolean;
-    apiKey: boolean;
-    webhookUrl: string | null;
+    apiKeySet: boolean;
+    ipnSecretSet: boolean;
+    sandbox: boolean;
+    ipnUrl: string | null;
     events: string[];
   };
   recentEvents: { _id: string; provider?: string; event_type?: string; status?: string; result?: string; error?: string; occurred_at?: string; createdAt?: string }[];
   telegram: { configured: boolean; username: string | null; webhookUrl: string | null };
-  zernio: { configured: boolean };
 }
 
 export function useSystemStatus() {

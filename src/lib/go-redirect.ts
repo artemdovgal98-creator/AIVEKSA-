@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { recordClick } from "@/lib/click-tracking";
 import { offerNetwork } from "@/lib/offers";
 import { SESSION_COOKIE, newClickId, newSessionId, withClickId } from "@/lib/affiliate-tracking";
+import { clientIp } from "@/lib/rate-limit";
 import type { AffiliateOfferRecord } from "@/lib/types";
 
 const SESSION_RE = /^[A-Z0-9]{24}$/;
@@ -44,6 +45,7 @@ export async function trackedRedirect(
       clickId,
       sessionId,
       origin,
+      ip: clientIp(request),
     });
   }
   if (clickId) {

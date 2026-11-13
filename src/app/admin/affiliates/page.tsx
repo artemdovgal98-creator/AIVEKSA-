@@ -219,8 +219,8 @@ export default function AffiliateMarketplacePage() {
         <StatCard label={d.live} value={s.live} icon={Link2} accent="text-emerald-300" />
         <StatCard label={d.clicks} value={s.clicks} icon={MousePointerClick} accent="text-amber-300" />
         <StatCard label={d.conversions} value={s.conversions} icon={Target} accent="text-cyan-300" />
-        <StatCard label={d.revenue} value={s.conversions ? formatMoney(s.revenue) : "N/A"} icon={BadgeDollarSign} accent="text-emerald-300" />
-        <StatCard label="EPC" value={s.epc && s.conversions ? formatMoney(s.epc) : "N/A"} icon={Sparkles} accent="text-violet-300" />
+        <StatCard label={d.revenue} value={formatMoney(s.revenue)} icon={BadgeDollarSign} accent="text-emerald-300" />
+        <StatCard label="EPC" value={formatMoney(s.epc)} icon={Sparkles} accent="text-violet-300" />
         <StatCard label="CR" value={pct(s.cr)} icon={Percent} accent="text-cyan-300" />
         <StatCard label="CTR" value={pct(s.ctr)} icon={Percent} accent="text-amber-200" />
       </div>
@@ -292,7 +292,7 @@ export default function AffiliateMarketplacePage() {
                 <div><p className="font-bold text-white">{n.live}</p><p className="text-foreground/40">{d.live}</p></div>
                 <div><p className="font-bold text-white">{n.clicks}</p><p className="text-foreground/40">{d.clicks}</p></div>
                 <div><p className="font-bold text-white">{n.conversions}</p><p className="text-foreground/40">{d.conversions}</p></div>
-                <div><p className="font-bold text-white">{n.conversions ? formatMoney(n.revenue) : "N/A"}</p><p className="text-foreground/40">{d.revenue}</p></div>
+                <div><p className="font-bold text-white">{formatMoney(n.revenue)}</p><p className="text-foreground/40">{d.revenue}</p></div>
                 <div><p className="font-bold text-white">{pct(n.cr)}</p><p className="text-foreground/40">CR</p></div>
               </div>
               {n.offers === 0 && <p className="mt-3 text-[11px] text-amber-300/80">{a.common.notConfigured}</p>}

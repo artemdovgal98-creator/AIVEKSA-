@@ -71,7 +71,7 @@ export function Pill({ children, tone = "gray" }: { children: React.ReactNode; t
 }
 
 export function StatusPill({ status, label }: { status?: string | null; label?: string }) {
-  if (!status) return <Pill>N/A</Pill>;
+  if (!status) return <Pill>—</Pill>;
   return <Pill tone={STATUS_TONE[status] || "gray"}>{label || status.toUpperCase()}</Pill>;
 }
 
@@ -143,13 +143,13 @@ export function fmtDate(value?: string | null, withTime = false): string {
 }
 
 export function fmtAmount(amount?: number | null, currency?: string | null): string {
-  if (amount === null || amount === undefined || !Number.isFinite(Number(amount))) return "N/A";
+  if (amount === null || amount === undefined || !Number.isFinite(Number(amount))) return "—";
   const symbol = CURRENCY_SYMBOLS[(currency || "usd") as keyof typeof CURRENCY_SYMBOLS] || "";
   return `${symbol}${Number(amount).toFixed(2)}`;
 }
 
 export function fmtPercent(value?: number | null, digits = 2): string {
-  return value === null || value === undefined || !Number.isFinite(value) ? "N/A" : `${value.toFixed(digits)}%`;
+  return value === null || value === undefined || !Number.isFinite(value) ? "—" : `${value.toFixed(digits)}%`;
 }
 
 export function Field({ label, hint, error, children }: { label: string; hint?: string; error?: string; children: React.ReactNode }) {

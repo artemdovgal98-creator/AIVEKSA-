@@ -143,8 +143,8 @@ export function OfferRow({
         <div className="grid grid-cols-3 gap-x-4 gap-y-1 text-right text-[11px] sm:grid-cols-6">
           <Metric label={d.clicks} value={m.clicks} />
           <Metric label={d.conversions} value={m.conversions} />
-          <Metric label={d.revenue} value={m.revenueScalar ? formatMoney(m.revenue) : "N/A"} />
-          <Metric label="EPC" value={m.epc ? formatMoney(m.epc) : "N/A"} />
+          <Metric label={d.revenue} value={formatMoney(m.revenue)} />
+          <Metric label="EPC" value={formatMoney(m.epc)} />
           <Metric label="CR" value={pct(m.cr)} />
           <Metric label="CTR" value={pct(m.ctr)} />
         </div>
