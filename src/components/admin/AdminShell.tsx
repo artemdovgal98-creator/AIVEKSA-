@@ -13,6 +13,7 @@ import {
   Handshake,
   Image,
   LayoutGrid,
+  Megaphone,
   MousePointerClick,
   Radar,
   Repeat,
@@ -48,6 +49,7 @@ const CONTENT: { href: string; key: MenuKey; icon: typeof BarChart3 }[] = [
   { href: "/admin/radar", key: "radar", icon: Radar },
   { href: "/admin/articles", key: "articles", icon: FileText },
   { href: "/admin/banners", key: "banners", icon: Image },
+  { href: "/admin/ads", key: "ads", icon: Megaphone },
   { href: "/admin/clicks", key: "clicks", icon: MousePointerClick },
 ];
 
